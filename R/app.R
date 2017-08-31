@@ -12,20 +12,17 @@ library(ggplot2)
 library(reshape2)
 library(ggcorrplot)
 library(shinyjs)
+library(logging)
+library(shinycssloaders)
+library(shinydashboard)
 
-ui <- tagList(fluidPage(useShinyjs(),
-                        theme = "bootstrap.css",
+ui <- tagList(dashboardPage(useShinyjs(),
+                       # theme = "bootstrap.css",
             includeScript("./text.js"),
-            titlePanel("LeanTopDown"),
-            fluidRow(column(4, checkboxInput("facet", "Facetting", FALSE),
-                               textInput("seq", "Sequence", ""),
-                               checkboxInput("septerm", "Separate Termini Processing", TRUE),
-                               numericInput("modnum", "Number of Modifications", 0, 0, 5, 1),
-                               checkboxInput("bound", "Binding of Masslist", TRUE)),
-                     column(4, numericInput("ppm", "Accuracy", 3.5, 0.5, 20, 0.5))),
-            fluidRow(
-              column(4,
-                     wellPanel(
+            dashboardHeader(title = "LeanTopDown"),
+            dashboardSidebar(
+              sidebarMenu(
+                     conditionalPanel(condition = "input.conditionedPanels == 'cor'",
                        tags$div(class="form-group shiny-input-container",
                                 tags$div(tags$label("File input")),
                                 tags$div(tags$label("Choose folder", class="btn btn-primary",
@@ -42,40 +39,56 @@ ui <- tagList(fluidPage(useShinyjs(),
                        actionLink("selectall","Select All"),
 
                        uiOutput("selectFiles")
-                     )
+                     ),
+                     conditionalPanel(condition = "input.conditionedPanels == 'frm'",
+                       checkboxInput("facet", "Facetting", FALSE),
+                       textInput("seq", "Sequence", ""),
+                       checkboxInput("septerm", "Separate Termini Processing", TRUE),
+                       numericInput("modnum", "Number of Modifications", 0, 0, 5, 1),
+                       checkboxInput("bound", "Binding of Masslist", TRUE)),
+                       numericInput("ppm", "Accuracy", 3.5, 0.5, 20, 0.5)
+                     ),
+                     conditionalPanel(condition = "input.conditionedPanels == 'frf'",
+                                      fileInput("freqfile", "Frequent Flyers File", FALSE))
               ),
-              column(8,
+              dashboardBody(
                      tabsetPanel(
-                       tabPanel("mirRaw Plot", plotOutput("mirPlot", hover = "plotHover",
-                                                          brush = brushOpts("plotBrush", resetOnNew = TRUE), dblclick = "plotDC")),
-                       tabPanel("Correlation Plot", plotOutput("corPlot")),
+                       tabPanel("mirRaw Plot", withSpinner(plotOutput("mirPlot", hover = "plotHover",
+                                                          brush = brushOpts("plotBrush", resetOnNew = TRUE),
+                                                          dblclick = "plotDC")), value = "mir"),
+                       tabPanel("Correlation Plot", plotOutput("corPlot"), value = "cor"),
                        tabPanel("Spectrum Annotation", plotOutput("spectrum", hover = "spechover",
                                                                   brush = brushOpts("specBrush", resetOnNew = TRUE),
-                                                                  dblclick = "specDC")),
-                       tabPanel("Fragment Maps", plotOutput("fragmap", hover = "fmhover",
+                                                                  dblclick = "specDC"), value = "spa"),
+                       tabPanel("Fragment Maps", withSpinner(plotOutput("fragmap", hover = "fmhover",
                                                             brush = brushOpts("fmBrush", resetOnNew = TRUE),
-                                                            dblclick = "fmDC")),
+                                                            dblclick = "fmDC"),  type = getOption("spinner.type", default = 3), color.background = "white"), value = "frm"),
                        tabPanel("Frequent Flyers", plotOutput("freqfls", hover = "ffhover",
                                                             brush = brushOpts("ffBrush", resetOnNew = TRUE),
-                                                            dblclick = "ffDC")),
+                                                            dblclick = "ffDC"), value = "frf"),
                        tabPanel("Z Plot", plotOutput("zplot", hover = "zphover",
                                                             brush = brushOpts("zpBrush", resetOnNew = TRUE),
-                                                            dblclick = "zpDC")),
+                                                            dblclick = "zpDC"), value = "zpl"),
                        tabPanel("Fragmentation Stats", plotOutput("fragstat", hover = "fshover",
                                                             brush = brushOpts("fsBrush", resetOnNew = TRUE),
-                                                            dblclick = "fsDC")),
+                                                            dblclick = "fsDC"), value = "frs"),
                        tabPanel("Energy Resolved Tracing", plotOutput("erplot", hover = "erhover",
                                                             brush = brushOpts("erBrush", resetOnNew = TRUE),
-                                                            dblclick = "erDC"))
+                                                            dblclick = "erDC"), value = "erp"),
+                       id = "conditionedPanels"
 
                      ),
                      verbatimTextOutput("info")
               )
-            )
+
+
 ),
 HTML("<script type='text/javascript' src='getFolders.js'></script>")
 )
 
+#basicConfig()
+
+#options(shiny.error = browser)
 
 
 server <- function(input, output, session) {
@@ -99,6 +112,9 @@ server <- function(input, output, session) {
       inFiles <<- input$fileIn
       df <- prepare_masslists(shiny = TRUE)
     }
+
+    if(exists("data_merged")) rm(data_merged, inherits = TRUE)
+
     df
 
   })
@@ -213,16 +229,35 @@ server <- function(input, output, session) {
     data <- df()
     inFiles <- input$fileIn
     seq <- input$seq
-    gList <- data
-    Data_list <<- LeanTopDown::import_masslists(bound = input$bound, mod.number = input$modnum, shiny = TRUE)
+
+    #gList <- data
+    #browser()
+    Data_list <<- LeanTopDown::import_masslists(bound = input$bound, mod.number = input$modnum, shiny = TRUE, files = inFiles)
     data_merged <<- LeanTopDown::prepare_data_frame_term_sep_aa_all(sep_term = input$septerm,
                                                                         mod.number = input$modnum,
-                                                                        ppm = input$ppm)
-    LeanTopDown::fragment_map()
+                                                                        ppm = input$ppm, tint = FALSE, seq = seq)
+    LeanTopDown::fragment_map(seq = seq)
 
   })
 
+  output$freqfls <- renderPlot({
+
+    file <- input$freqfile
+    LeanTopDown::frqfls(file = file$datapath)
+
+  })
+
+  withSpinner(plotOutput("fragmap"))
+
+  output$zplot <- renderPlot(
+    {
+
+    }
+  )
+
 }
+
+
 
 shinyApp(ui = ui, server = server)
 

@@ -7,7 +7,7 @@
 fragment_map(data = data_merged, subset = FALSE, uvhcpd = FALSE,
   Plot_title_suffix = "", Plot_dir_name = "plot/",
   Plot_file_name = "pin1_6al7_2phos_sty", Plot_width = 3,
-  Plot_height = 10)
+  Plot_height = 10, seq = seq)
 }
 \arguments{
 \item{Plot_height}{}

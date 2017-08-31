@@ -32,7 +32,7 @@ create_plot_dir <- function(folder){
 #' @export
 #'
 #' @examples
-import_masslists <- function(dir = "", folder = "/", bound = FALSE, mod.number = 0, shiny = FALSE){
+import_masslists <- function(dir = "", folder = "/", bound = FALSE, mod.number = 0, shiny = FALSE, files = inFiles){
 if(!shiny){
   if(dir == "") dir <- getwd()
   Data_dir <- dir
@@ -68,8 +68,8 @@ if(!shiny){
 
 
 } else {
-  file_list <- inFiles$datapath[grepl(".masslist", inFiles$datapath)]
-  file_names <- inFiles$name[grepl(".masslist", inFiles$name)]
+  file_list <- files$datapath[grepl(".masslist", files$datapath)]
+  file_names <- files$name[grepl(".masslist", files$name)]
 
   if(mod.number == 1){
     file_list_C_0 <- file_list[which(grepl("C_0", file_names) | grepl("N_0", file_names))]
@@ -230,7 +230,7 @@ prepare_masslists <- function(dir = "", shiny = FALSE) {
 }
 
 
-prepare_data_frame_term_sep_aa_all <- function(data = Data_list, x = "/", ppm = 3.5, sep_term = FALSE, mod.number = 0, tint = TRUE){
+prepare_data_frame_term_sep_aa_all <- function(expdef = FALSE, data = Data_list, x = "/", ppm = 3.5, sep_term = FALSE, mod.number = 0, tint = FALSE, seq = seq){
 
   Data_list_new <- data
 

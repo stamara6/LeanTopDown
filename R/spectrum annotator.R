@@ -7,6 +7,7 @@
 #writeClipboard(as.character(s27_9382$Mass))
 
 library(ggrepel)
+library(RColorBrewer)
 
 #' Spectrum annotation
 #'
@@ -113,7 +114,7 @@ annotate_spectrum <- function(data = gList, dir2 = "", dir3 = "",
 
   Plot_dir_name <- "plot"
   #plot_and_save(plot_gg, Plot_dir_name, Plot_file_name, Plot_width = 15, Plot_height = 10)
-  save(list = ls(), file = paste0(Data_dir,"/", Sys.Date(),"_", Plot_file_name,".RData"))
+  #save(list = ls(), file = paste0(Data_dir,"/", Sys.Date(),"_", Plot_file_name,".RData"))
 
   print(plot_gg)
 }
@@ -139,11 +140,11 @@ annotate_spectrum <- function(data = gList, dir2 = "", dir3 = "",
 #' @export
 #'
 #' @examples
-fragment_map <- function(data = data_merged, subset = FALSE, uvhcpd = FALSE, Plot_title_suffix = "", Plot_dir_name = "plot/", Plot_file_name = "pin1_6al7_2phos_sty", Plot_width = 3, Plot_height = 10) {
+fragment_map <- function(data = data_merged, subset = FALSE, uvhcpd = FALSE, Plot_title_suffix = "", Plot_dir_name = "plot/", Plot_file_name = "pin1_6al7_2phos_sty", Plot_width = 3, Plot_height = 10, seq = seq) {
 
-  Data_dir <- getwd()
+  #Data_dir <- getwd()
 
-  data$energy <- as.numeric(data$energy)
+  #data$energy <- as.numeric(data$energy)
 
   #if(subset == TRUE) data <- subset(data, abs(data$calib.ppm) <= 1.0)
   if(uvhcpd == TRUE) ass_data_merged$uvhcpd <- paste0(ass_data_merged$hcd,"Vx",ass_data_merged$energy, "mJ")
@@ -160,12 +161,12 @@ fragment_map <- function(data = data_merged, subset = FALSE, uvhcpd = FALSE, Plo
   rk.df <- data.frame(Amino.acid = s[[1]][rk], Sequence.position = rk)
   s.df <- data.frame(Amino.acid = s[[1]], Sequence.position = seq(1,length(s[[1]])))
   c.df <- data.frame(Amino.acid = s[[1]][c], Sequence.position = c)
-  myPalette <- colorRampPalette(hotmetal())
+  #myPalette <- colorRampPalette(hotmetal())
   data$term <- as.factor(data$term)
   levels(data$term) <- c("C-terminal fragments", "N-terminal fragments")
   #data$exp <- round(as.numeric(gsub('.*_([[:digit:]]+.[[:digit:]]+).txt.*','\\1',data$exp)),0)
 
-  plot_gg <- ggplot(data[data$calib.ppm <= 1.0,]) +
+  plot_gg <- ggplot(data) +
     stat_identity(geom = "tile", width  = 1, aes(x = Sequence.position, y = mod, fill = term, alpha = norm.intens.Zscored)) +
 
     geom_hline(yintercept = 0.5) +
@@ -201,6 +202,8 @@ fragment_map <- function(data = data_merged, subset = FALSE, uvhcpd = FALSE, Plo
           axis.text.x = element_text()) +
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
+
+  if(exists("data_merged")) rm(data_merged)
   #Plot_dir_name <- "plot"
   #plot_and_save(plot_gg, Plot_dir_name, Plot_file_name, Plot_width = 10, Plot_height = 4)
   #save(list = ls(), file = paste0(Data_dir,"/", Sys.Date(),"_", Plot_file_name,".RData"))

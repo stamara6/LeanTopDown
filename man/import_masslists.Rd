@@ -5,7 +5,7 @@
 \title{Import masslists output files from TopDownLab}
 \usage{
 import_masslists(dir = "", folder = "/", bound = FALSE, mod.number = 0,
-  shiny = FALSE)
+  shiny = FALSE, files = inFiles)
 }
 \arguments{
 \item{dir}{directory to get files if not specified working directory}

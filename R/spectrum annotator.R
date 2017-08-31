@@ -11,19 +11,20 @@ library(RColorBrewer)
 
 #' Spectrum annotation
 #'
-#' @param dir
 #' @param dir2
 #' @param dir3
 #' @param subset
 #' @param mergefrags
 #' @param Plot_file_name
+#' @param data
+#' @param ranges
 #'
 #' @return
 #' @export
 #'
 #' @examples
 annotate_spectrum <- function(data = gList, dir2 = "", dir3 = "",
-                      subset = FALSE, mergefrags = FALSE, Plot_file_name = "annotated spectrum") {
+                      subset = FALSE, mergefrags = FALSE, Plot_file_name = "annotated spectrum", ranges = ranges) {
 
   if(mergefrags == TRUE & dir2 != "" & dir3 != "")
   {
@@ -107,8 +108,8 @@ annotate_spectrum <- function(data = gList, dir2 = "", dir3 = "",
                     aes(y = Intensity, x = m.z, label = paste0(Ion.type, Series.number), alpha = Intensity, color = mod), size = 2.5) +
     geom_text_repel(data = df[df$Intensity > 10 & df$m.z < 17000,], aes(y = Intensity, x = m.z, label = round(m.z,2), alpha = Intensity), size = 2.5, angle = 90) +
     facet_grid(exp~., scales = "free") +
-    scale_y_continuous() +
-    scale_x_continuous(limits = c(0,17000)) +
+    scale_y_continuous(limits = ranges$y) +
+    scale_x_continuous(limits = ranges$x) +
     theme(strip.text.x = element_text(size = 5))
 
 
@@ -203,7 +204,7 @@ fragment_map <- function(data = data_merged, subset = FALSE, uvhcpd = FALSE, Plo
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 
-  if(exists("data_merged")) rm(data_merged)
+
   #Plot_dir_name <- "plot"
   #plot_and_save(plot_gg, Plot_dir_name, Plot_file_name, Plot_width = 10, Plot_height = 4)
   #save(list = ls(), file = paste0(Data_dir,"/", Sys.Date(),"_", Plot_file_name,".RData"))

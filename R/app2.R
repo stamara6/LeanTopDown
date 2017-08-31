@@ -24,21 +24,16 @@ ui <- dashboardPage(
 
             sidebarMenu(
 
-              conditionalPanel(condition = "input.conditionedPanels == 'mir'",
-                                       uiOutput("mzRange"),
-                                       actionButton("mirplot", "Plot"),
-                                       checkboxInput("masslists", "Process Masslists", FALSE),
-                                       actionLink("selectall","Select All")),
+              conditionalPanel(condition = "input.conditionedPanels == 'mir'"
+                                       #checkboxInput("masslists", "Process Masslists", FALSE),
+                                       ),
 
               conditionalPanel(condition = "input.conditionedPanels == 'cor'",
-                                       uiOutput("mzRange2"),
-                                       actionButton("corplot", "Plot"),
-                                       checkboxInput("masslists2", "Process Masslists", FALSE),
+                                       #checkboxInput("masslists2", "Process Masslists", FALSE),
                                        actionLink("selectall2","Select All")),
 
               conditionalPanel(condition = "input.conditionedPanels == 'spa'",
-                                       uiOutput("mzRange3"),
-                                       checkboxInput("masslists3", "Process Masslists", FALSE),
+                                       checkboxInput("masslists", "Process Masslists", FALSE),
                                        actionLink("selectall3","Select All")),
 
               conditionalPanel(condition = "input.conditionedPanels == 'frm'",
@@ -78,7 +73,10 @@ ui <- dashboardPage(
                                        numericInput("modnum4", "Number of Modifications", 0, 0, 5, 1),
                                        checkboxInput("bound4", "Binding of Masslist", TRUE),
                                        numericInput("ppm4", "Accuracy", 3.5, 0.5, 20, 0.5)),
+              actionButton("plot", "Plot"),
+              uiOutput("mzRange"),
               fileInput("fileIn", "Upload Masslists", TRUE),
+              actionLink("selectall","Select All"),
               checkboxGroupInput("selectFiles", "Select Spectra", c("1" = "1"))
 
 
@@ -164,10 +162,6 @@ server <- function(input, output, session) {
     }
     df <- df[!sapply(df, is.null)]
     names(df) <- inFiles$name[grepl(".txt|.masslist|.csv", inFiles$name)]
-    if(input$masslists == TRUE) {
-      inFiles <<- input$fileIn
-      df <- prepare_masslists(shiny = TRUE)
-    }
 
     df
 
@@ -179,27 +173,29 @@ server <- function(input, output, session) {
     #browser()
 
     spectra <- names(df())
-    spectra2 <- names(df2())
+    #spectra2 <- names(df2())
 
     updateCheckboxGroupInput(session, "selectFiles", "Select Spectra", choices = spectra,
                        selected = "")
 
-    updateCheckboxGroupInput(session, "selectFiles", "Select Spectra", choices = spectra2,
-                             selected = "")
+    #updateCheckboxGroupInput(session, "selectFiles", "Select Spectra", choices = spectra2,
+     #                        selected = "")
 
   })
 
-  # observe({
-  #
-  #   if(input$selectall == 0) return(NULL)
-  #   else if (input$selectall%%2 == 0)
-  #   {
-  #     updateCheckboxGroupInput(session, "spectra", "Select Spectra", choices = names(df()))
-  #   } else
-  #   {
-  #     updateCheckboxGroupInput(session, "spectra", "Select Spectra", choices = names(df()), selected = names(df()))
-  #   }
-  # })
+
+
+  observe({
+
+    if(input$selectall == 0) return(NULL)
+    else if (input$selectall%%2 == 0)
+    {
+      updateCheckboxGroupInput(session, "spectra", "Select Spectra", choices = names(df()))
+    } else
+    {
+      updateCheckboxGroupInput(session, "spectra", "Select Spectra", choices = names(df()), selected = names(df()))
+    }
+  })
 
   ranges <- reactiveValues(x = NULL, y = NULL)
 
@@ -232,25 +228,23 @@ server <- function(input, output, session) {
                 min = min(data$m.z), max = max(data$m.z), value = c(1000,5000))
   })
 
-  chosenspectra <- eventReactive(input$mirplot, {
+  chosenspectra <- eventReactive(input$plot, {
     subspectra <- input$selectFiles
-  })
 
-  chosenspectra2 <- eventReactive(input$corplot, {
-    subspectra2 <- input$selectFiles2
   })
 
   output$mirPlot <- renderPlot({
     #browser()
     data <- df()
+    if(is.null(ranges$x)) {ranges$x <- c(input$range[1], input$range[2])
+    ranges$y <- c(-100, 100)}
     subspectra <- chosenspectra()
     raw1 <- data[[subspectra[1]]]
     raw2 <- data[[subspectra[2]]]
 
 
 
-    if(is.null(ranges$x)) {ranges$x <- c(input$range[1], input$range[2])
-                           ranges$y <- c(-100, 100)}
+
     #colnames(raw1)[grepl("m.z|Mz|M.z|M.Z")] <- "Mz"
     ggplot(raw1, aes(x = m.z, y = Intensity/max(Intensity)*100)) +
       theme_bw() +
@@ -278,7 +272,7 @@ server <- function(input, output, session) {
   output$corPlot <- renderPlot({
 
     data <- df()
-    subspectra <- chosenspectra2()
+    subspectra <- chosenspectra()
 
     ranges <- seq(input$range[1], input$range[2], by = 0.1)
 
@@ -303,18 +297,20 @@ server <- function(input, output, session) {
   output$spectrum <- renderPlot({
 
     data <- df()
+    subspectra <- chosenspectra()
+#browser()
     inFiles <- input$fileIn
-    gList <<- data
-    LeanTopDown::annotate_spectrum(data = gList)
-
+    gList <<- data[subspectra]
+    ranges$y <<- c(0, 100)
+    LeanTopDown::annotate_spectrum(data = gList, ranges = ranges)
   })
 
   output$fragmap <- renderPlot({
 
-    data <- df()
-    inFiles <- input$fileIn
+    #data <- chosenspectra()
+    inFiles <- input$fileIn[input$fileIn$name %in% chosenspectra(),]
     seq <- input$seq
-
+    rm("data_merged", "Data_list", pos = ".GlobalEnv")
     #gList <- data
     #browser()
     Data_list <<- LeanTopDown::import_masslists(bound = input$bound, mod.number = input$modnum, shiny = TRUE, files = inFiles)
@@ -332,10 +328,10 @@ server <- function(input, output, session) {
 
   })
 
-  withSpinner(plotOutput("fragmap"))
 
   output$zplot <- renderPlot(
     {
+      data <- chosenspectra()
 
     }
   )

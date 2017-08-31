@@ -1,0 +1,18 @@
+Package: LeanTopDown
+Type: Package
+Title: Post Processing of Top-Down Data
+Version: 0.1.0
+Author@R: person("Sem", "Tamara", email = "s.tamara@uu.nl", role = c("aut", "cre"))
+Maintainer: The package maintainer <s.tamara@uu.nl>
+Description: This package provides next features: plotting of frequent mass deviations for the spectrum or spectra, that was previously generated with TopDownLab; preparing dataframes from masslists with all relevant information; combination of fragments from various files for more explicit annotation; annotation of spectrum; fragmentation statistics (e.g. types of fragments, mass shifts, accuracy, etc.).
+License: What license is it under?
+Encoding: UTF-8
+Depends: R (>= 3.4.1)
+LazyData: true
+Imports: 
+    dplyr (>= 0.7.2),
+    ggplot2 (>= 2.2.1),
+    ggrepel (>= 0.6.5),
+    reshape2 (>= 1.4.2),
+    scales (>= 0.4.1)
+RoxygenNote: 6.0.1

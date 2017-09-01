@@ -29,7 +29,7 @@ plot_gg <- ggplot(df) +
   geom_point(aes(x=Mz.diff, y=Count, size=Intensity, alpha = .1))
 
 
-print(plot_gg)
+plot_gg
 #plot_and_save(plot_gg, Plot_dir_name, Plot_file_name, Plot_width, Plot_height)
 
 }

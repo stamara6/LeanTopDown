@@ -117,7 +117,7 @@ annotate_spectrum <- function(data = gList, dir2 = "", dir3 = "",
   #plot_and_save(plot_gg, Plot_dir_name, Plot_file_name, Plot_width = 15, Plot_height = 10)
   #save(list = ls(), file = paste0(Data_dir,"/", Sys.Date(),"_", Plot_file_name,".RData"))
 
-  print(plot_gg)
+  plot_gg
 }
 
 #rm(ass_data_merged)

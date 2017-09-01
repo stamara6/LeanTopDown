@@ -7,6 +7,12 @@
 #    http://shiny.rstudio.com/
 #
 
+source("helpers.R", local = TRUE)
+source("spectrum annotator.R", local = TRUE)
+source("freqflyers.R", local = TRUE)
+source("frgmntstats.R", local = TRUE)
+
+
 library(shiny)
 library(ggplot2)
 library(reshape2)
@@ -15,6 +21,8 @@ library(shinyjs)
 library(logging)
 library(shinycssloaders)
 library(shinydashboard)
+library(LeanTopDown)
+library(gridExtra)
 
 ui <- dashboardPage(
 
@@ -28,53 +36,31 @@ ui <- dashboardPage(
                                        #checkboxInput("masslists", "Process Masslists", FALSE),
                                        ),
 
-              conditionalPanel(condition = "input.conditionedPanels == 'cor'",
+              conditionalPanel(condition = "input.conditionedPanels == 'cor'"
                                        #checkboxInput("masslists2", "Process Masslists", FALSE),
-                                       actionLink("selectall2","Select All")),
+                                       ),
 
-              conditionalPanel(condition = "input.conditionedPanels == 'spa'",
-                                       checkboxInput("masslists", "Process Masslists", FALSE),
-                                       actionLink("selectall3","Select All")),
+              conditionalPanel(condition = "input.conditionedPanels == 'spa'"
+                                       ),
 
-              conditionalPanel(condition = "input.conditionedPanels == 'frm'",
-                                       checkboxInput("facet", "Facetting", FALSE),
-                                       textInput("seq", "Sequence", ""),
-                                       checkboxInput("septerm", "Separate Termini Processing", TRUE),
-                                       numericInput("modnum", "Number of Modifications", 0, 0, 5, 1),
-                                       checkboxInput("bound", "Binding of Masslist", TRUE),
-                                       numericInput("ppm", "Accuracy", 3.5, 0.5, 20, 0.5)),
+              conditionalPanel(condition = "input.conditionedPanels == 'frm'"
+                                       ),
 
               conditionalPanel(condition = "input.conditionedPanels == 'frf'",
                                        fileInput("freqfile", "Frequent Flyers File", FALSE)),
 
-              conditionalPanel(condition = "input.conditionedPanels == 'zpl'",
-                                       fileInput("masslists2", "Upload Masslists", TRUE),
-                                       checkboxInput("facet2", "Facetting", FALSE),
-                                       textInput("seq2", "Sequence", ""),
-                                       checkboxInput("septerm2", "Separate Termini Processing", TRUE),
-                                       numericInput("modnum2", "Number of Modifications", 0, 0, 5, 1),
-                                       checkboxInput("bound2", "Binding of Masslist", TRUE),
-                                       numericInput("ppm2", "Accuracy", 3.5, 0.5, 20, 0.5)),
+              conditionalPanel(condition = "input.conditionedPanels == 'frs'"
+                                       ),
 
-              conditionalPanel(condition = "input.conditionedPanels == 'frs'",
-                                       fileInput("masslists3", "Upload Masslists", TRUE),
-                                       checkboxInput("facet3", "Facetting", FALSE),
-                                       textInput("seq3", "Sequence", ""),
-                                       checkboxInput("septerm3", "Separate Termini Processing", TRUE),
-                                       numericInput("modnum3", "Number of Modifications", 0, 0, 5, 1),
-                                       checkboxInput("bound3", "Binding of Masslist", TRUE),
-                                       numericInput("ppm3", "Accuracy", 3.5, 0.5, 20, 0.5)),
-
-              conditionalPanel(condition = "input.conditionedPanels == 'erp'",
-                                       fileInput("spectra", "Upload Spectra", TRUE),
-                                       checkboxInput("facet4", "Facetting", FALSE),
-                                       textInput("seq4", "Sequence", ""),
-                                       checkboxInput("septerm4", "Separate Termini Processing", TRUE),
-                                       numericInput("modnum4", "Number of Modifications", 0, 0, 5, 1),
-                                       checkboxInput("bound4", "Binding of Masslist", TRUE),
-                                       numericInput("ppm4", "Accuracy", 3.5, 0.5, 20, 0.5)),
+              conditionalPanel(condition = "input.conditionedPanels == 'erp'"
+                                       ),
               actionButton("plot", "Plot"),
+              downloadButton("saveplot", "Save Plot"),
+              radioButtons("filetype", "Save as:",
+                           choices = c("pdf", "png")),
+              textInput("filename", "File name:", ""),
               uiOutput("mzRange"),
+              checkboxInput("masslists", "Process Masslists", FALSE),
               fileInput("fileIn", "Upload Masslists", TRUE),
               actionLink("selectall","Select All"),
               checkboxGroupInput("selectFiles", "Select Spectra", c("1" = "1"))
@@ -85,26 +71,54 @@ ui <- dashboardPage(
                      tabsetPanel(
                        tabPanel("mirRaw Plot", box(withSpinner(plotOutput("mirPlot", hover = "plotHover",
                                                           brush = brushOpts("plotBrush", resetOnNew = TRUE),
-                                                          dblclick = "plotDC"))), value = "mir"),
-                       tabPanel("Correlation Plot", box(withSpinner(plotOutput("corPlot"))), value = "cor"),
+                                                          dblclick = "plotDC"))),
+                                                value = "mir"),
+                       tabPanel("Correlation Plot", box(withSpinner(plotOutput("corPlot"))),  value = "cor"),
                        tabPanel("Spectrum Annotation", box(withSpinner(plotOutput("spectrum", hover = "spechover",
                                                                   brush = brushOpts("specBrush", resetOnNew = TRUE),
-                                                                  dblclick = "specDC"))), value = "spa"),
+                                                                  dblclick = "specDC"))),
+
+                                box(checkboxInput("facet", "Facetting", FALSE)),
+                                value = "spa"),
                        tabPanel("Fragment Maps", box(withSpinner(plotOutput("fragmap", hover = "fmhover",
                                                             brush = brushOpts("fmBrush", resetOnNew = TRUE),
-                                                            dblclick = "fmDC"))), value = "frm"),
+                                                            dblclick = "fmDC"))),
+
+
+                                box(checkboxInput("facet2", "Facetting", FALSE),
+                                    textInput("seq", "Sequence", "MKSVITTVVSAADAAGRFPSNSDLESIQGNIQRSAARLEAAEKLAGNHEAVVKEAGDACFAKYAYLKNPGEAGENQEKINKCYRDVDHYMRLVNYCLVVGGTGPLDEWGIAGAREVYRTLNLPTSAYVASIAYTRDRLCVPRDMSAQAGVEFSAYLDYLINALS"),
+                                    #checkboxInput("septerm", "Separate Termini Processing", TRUE),
+                                    numericInput("modnum", "Number of Modifications", 0, 0, 5, 1),
+                                    #checkboxInput("bound", "Binding of Masslist", TRUE),
+                                    numericInput("ppm", "Accuracy", 3.5, 0.5, 20, 0.5)),value = "frm"),
                        tabPanel("Frequent Flyers", box(withSpinner(plotOutput("freqfls", hover = "ffhover",
                                                             brush = brushOpts("ffBrush", resetOnNew = TRUE),
-                                                            dblclick = "ffDC"))), value = "frf"),
-                       tabPanel("Z Plot", box(withSpinner(plotOutput("zplot", hover = "zphover",
+                                                            dblclick = "ffDC"))),
+                                                                                       value = "frf"),
+                       tabPanel("Fragmentation Stats", box(withSpinner(plotOutput("fragtypes", hover = "fthover",
+                                                            brush = brushOpts("ftBrush", resetOnNew = TRUE),
+                                                            dblclick = "ftDC"))),
+                                                       box(withSpinner(plotOutput("zplot", hover = "zphover",
                                                             brush = brushOpts("zpBrush", resetOnNew = TRUE),
-                                                            dblclick = "zpDC"))), value = "zpl"),
-                       tabPanel("Fragmentation Stats", box(withSpinner(plotOutput("fragstat", hover = "fshover",
-                                                            brush = brushOpts("fsBrush", resetOnNew = TRUE),
-                                                            dblclick = "fsDC"))), value = "frs"),
+                                                            dblclick = "zpDC"))),
+
+                                box(checkboxInput("facet3", "Facetting", FALSE),
+                                    textInput("seq3", "Sequence", "MKSVITTVVSAADAAGRFPSNSDLESIQGNIQRSAARLEAAEKLAGNHEAVVKEAGDACFAKYAYLKNPGEAGENQEKINKCYRDVDHYMRLVNYCLVVGGTGPLDEWGIAGAREVYRTLNLPTSAYVASIAYTRDRLCVPRDMSAQAGVEFSAYLDYLINALS"),
+                                    numericInput("modnum2", "Number of Modifications", 0, 0, 5, 1),
+                                    numericInput("ppm2", "Accuracy", 3.5, 0.5, 20, 0.5)),
+                                value = "frs"),
                        tabPanel("Energy Resolved Tracing", box(withSpinner(plotOutput("erplot", hover = "erhover",
                                                             brush = brushOpts("erBrush", resetOnNew = TRUE),
-                                                            dblclick = "erDC"))), value = "erp"),
+                                                            dblclick = "erDC"))),
+
+                                box(fileInput("spectra", "Upload Spectra", TRUE),
+                                    checkboxInput("facet4", "Facetting", FALSE),
+                                    textInput("seq4", "Sequence", ""),
+                                    checkboxInput("septerm4", "Separate Termini Processing", TRUE),
+                                    numericInput("modnum4", "Number of Modifications", 0, 0, 5, 1),
+                                    checkboxInput("bound4", "Binding of Masslist", TRUE),
+                                    numericInput("ppm4", "Accuracy", 3.5, 0.5, 20, 0.5)),
+                                value = "erp"),
                        id = "conditionedPanels"
 
                      ),
@@ -170,16 +184,12 @@ server <- function(input, output, session) {
 
   observe({
 
-    #browser()
+   # browser()
 
     spectra <- names(df())
-    #spectra2 <- names(df2())
 
     updateCheckboxGroupInput(session, "selectFiles", "Select Spectra", choices = spectra,
                        selected = "")
-
-    #updateCheckboxGroupInput(session, "selectFiles", "Select Spectra", choices = spectra2,
-     #                        selected = "")
 
   })
 
@@ -190,10 +200,10 @@ server <- function(input, output, session) {
     if(input$selectall == 0) return(NULL)
     else if (input$selectall%%2 == 0)
     {
-      updateCheckboxGroupInput(session, "spectra", "Select Spectra", choices = names(df()))
+      updateCheckboxGroupInput(session, "selectFiles", "Select Spectra", choices = names(df()))
     } else
     {
-      updateCheckboxGroupInput(session, "spectra", "Select Spectra", choices = names(df()), selected = names(df()))
+      updateCheckboxGroupInput(session, "selectFiles", "Select Spectra", choices = names(df()), selected = names(df()))
     }
   })
 
@@ -220,15 +230,54 @@ server <- function(input, output, session) {
                 min = min(data$m.z), max = max(data$m.z), value = c(min(data$m.z), max(data$m.z)))
   })
 
-  output$mzRange2 <- renderUI({
-    data <- df2()
-    data <- do.call("rbind", data)
-    #if(exists(data$Mz)) colnames(data)[colnames(data) == "Mz"] <- "m.z"
-    sliderInput("range", "m/z Range (for correlation):",
-                min = min(data$m.z), max = max(data$m.z), value = c(1000,5000))
-  })
+  # output$mzRange2 <- renderUI({
+  #   data <- df2()
+  #   data <- do.call("rbind", data)
+  #   #if(exists(data$Mz)) colnames(data)[colnames(data) == "Mz"] <- "m.z"
+  #   sliderInput("range", "m/z Range (for correlation):",
+  #               min = min(data$m.z), max = max(data$m.z), value = c(1000,5000))
+  # })
+
+
+  inputPlotMir <- function() {
+    mirplot
+  }
+  inputPlotCor <- function() {
+    corplot
+  }
+  inputPlotSpa <- function() {
+    spaplot
+  }
+  inputPlotFrm <- function() {
+    frmplot
+  }
+  inputPlotFrf <- function() {
+    frfplot
+  }
+  inputPlotFrs <- function() {
+    grid.arrange(zplot, frtplot)
+  }
+  inputPlotErp <- function() {
+    erpplot
+  }
+
+#browser()
+  output$saveplot <- downloadHandler(filename = function() {if(input$filename != "") {fn <- paste0("_", input$filename)} else {fn <- ""}
+                                                            paste0(input$conditionedPanels,
+                                                                   fn,".",
+                                                                   input$filetype)},
+                                     content = function(file) {
+                                       if(input$conditionedPanels == "mir") inputPlot <<- inputPlotMir()
+                                       else if(input$conditionedPanels == "cor") inputPlot <<- inputPlotCor()
+                                       else if(input$conditionedPanels == "spa") inputPlot <<- inputPlotSpa()
+                                       else if(input$conditionedPanels == "frm") inputPlot <<- inputPlotFrm()
+                                       else if(input$conditionedPanels == "frf") inputPlot <<- inputPlotFrf()
+                                       else if(input$conditionedPanels == "frs") inputPlot <<- inputPlotFrs()
+                                       else if(input$conditionedPanels == "erp") inputPlot <<- inputPlotErp()
+                                       ggsave(file, plot = inputPlot, device = input$filetype)})
 
   chosenspectra <- eventReactive(input$plot, {
+
     subspectra <- input$selectFiles
 
   })
@@ -241,12 +290,8 @@ server <- function(input, output, session) {
     subspectra <- chosenspectra()
     raw1 <- data[[subspectra[1]]]
     raw2 <- data[[subspectra[2]]]
-
-
-
-
     #colnames(raw1)[grepl("m.z|Mz|M.z|M.Z")] <- "Mz"
-    ggplot(raw1, aes(x = m.z, y = Intensity/max(Intensity)*100)) +
+    mirplot <<- ggplot(raw1, aes(x = m.z, y = Intensity/max(Intensity)*100)) +
       theme_bw() +
       geom_histogram(stat = "identity", color = "black") +
       geom_histogram(data = raw2, aes(x = m.z, y = -Intensity/max(Intensity)*100), stat = "identity", color = "red") +
@@ -256,6 +301,8 @@ server <- function(input, output, session) {
       scale_x_continuous(limits = ranges$x) +
       xlab("m/z") +
       ylab("Normalized Intensities")
+
+    print(mirplot)
     }
   )
 
@@ -288,11 +335,11 @@ server <- function(input, output, session) {
 
     corMatrix <- cor(subdataDf, use = "pairwise.complete.obs", method = "pearson")
 
-    ggcorrplot(corMatrix, method = "square", hc.order = TRUE, lab = TRUE)
-
-  },
-  width = 1000,
-  height = 1000)
+    corplot <<- ggcorrplot(corMatrix, method = "square", hc.order = TRUE, lab = TRUE)
+    print(corplot)
+    },
+    width = 1000,
+    height = 1000)
 
   output$spectrum <- renderPlot({
 
@@ -302,7 +349,8 @@ server <- function(input, output, session) {
     inFiles <- input$fileIn
     gList <<- data[subspectra]
     ranges$y <<- c(0, 100)
-    LeanTopDown::annotate_spectrum(data = gList, ranges = ranges)
+    spaplot <<- annotate_spectrum(data = gList, ranges = ranges)
+    print(spaplot)
   })
 
   output$fragmap <- renderPlot({
@@ -313,25 +361,77 @@ server <- function(input, output, session) {
     rm("data_merged", "Data_list", pos = ".GlobalEnv")
     #gList <- data
     #browser()
-    Data_list <<- LeanTopDown::import_masslists(bound = input$bound, mod.number = input$modnum, shiny = TRUE, files = inFiles)
-    data_merged <<- LeanTopDown::prepare_data_frame_term_sep_aa_all(sep_term = input$septerm,
+    Data_list <<- import_masslists(bound = TRUE, mod.number = input$modnum, shiny = TRUE, files = inFiles)
+    data_merged <<- prepare_data_frame_term_sep_aa_all(sep_term = TRUE,
                                                                         mod.number = input$modnum,
                                                                         ppm = input$ppm, tint = FALSE, seq = seq)
-    LeanTopDown::fragment_map(seq = seq)
-
+    frmplot <<- fragment_map(seq = seq)
+    print(frmplot)
   })
 
   output$freqfls <- renderPlot({
 
     file <- input$freqfile
-    LeanTopDown::frqfls(file = file$datapath)
-
+    frfplot <<- frqfls(file = file$datapath)
+    frfplot
   })
+
 
 
   output$zplot <- renderPlot(
     {
-      data <- chosenspectra()
+      inFiles <- input$fileIn[input$fileIn$name %in% chosenspectra(),]
+      seq <- input$seq
+      rm("data_merged", "Data_list", pos = ".GlobalEnv")
+
+      #browser()
+      Data_list <<- import_masslists(bound = TRUE, mod.number = input$modnum, shiny = TRUE, files = inFiles)
+      data_merged <<- prepare_data_frame_term_sep_aa_all(sep_term = TRUE,
+                                                         mod.number = input$modnum,
+                                                         ppm = input$ppm, tint = FALSE, seq = seq)
+      if(length(unique(data_merged$Charge)) == 1) return()
+      zplot <<- fragment_charges(data = data_merged)
+
+      zplot
+
+    }
+  )
+
+
+  output$fragtypes <- renderPlot(
+    {
+      inFiles <- input$fileIn[input$fileIn$name %in% chosenspectra(),]
+      seq <- input$seq
+      rm("data_merged", "Data_list", pos = ".GlobalEnv")
+
+      #browser()
+      Data_list <<- import_masslists(bound = TRUE, mod.number = input$modnum, shiny = TRUE, files = inFiles)
+      data_merged <<- prepare_data_frame_term_sep_aa_all(sep_term = TRUE,
+                                                         mod.number = input$modnum,
+                                                         ppm = input$ppm, tint = FALSE, seq = seq)
+
+      frtplot <<- fragment_types(data = data_merged, ppm = input$ppm)
+
+      frtplot
+
+    }
+  )
+
+  output$tscplot <- renderPlot(
+    {
+      inFiles <- input$fileIn[input$fileIn$name %in% chosenspectra(),]
+      seq <- input$seq
+      rm("data_merged", "Data_list", pos = ".GlobalEnv")
+
+      #browser()
+      Data_list <<- import_masslists(bound = TRUE, mod.number = input$modnum, shiny = TRUE, files = inFiles)
+      data_merged <<- prepare_data_frame_term_sep_aa_all(sep_term = TRUE,
+                                                         mod.number = input$modnum,
+                                                         ppm = input$ppm, tint = FALSE, seq = seq)
+
+      tscplot <<- termini_sequence_coverage(data = data_merged, ppm = input$ppm)
+
+      tscplot
 
     }
   )

@@ -118,7 +118,7 @@ if(!shiny){
 #' @export
 #'
 #' @examples
-prepare_masslists <- function(dir = "", shiny = FALSE) {
+combine_masslists <- function(dir = "", shiny = FALSE) {
   if(!shiny) {
   if(dir == "") dir <- getwd()
   Data_list <- import_masslists(dir)
@@ -181,8 +181,8 @@ prepare_masslists <- function(dir = "", shiny = FALSE) {
         c <- l[[1]]
         c1 <- l[[2]]
 
-        n <- l[[4]]
-        n1 <- l[[5]]
+        n <- l[[3]]
+        n1 <- l[[4]]
 
 
         c[is.na(c$Ion.type), "Ion.type"] <- ""
@@ -218,7 +218,7 @@ prepare_masslists <- function(dir = "", shiny = FALSE) {
         cn <- c
         df <- cn
         df$exp <- x
-      }
+      } else print("Incorrect input!")
 
     df$Intensity <- df$Intensity/max(df$Intensity)*100
     df
@@ -230,65 +230,19 @@ prepare_masslists <- function(dir = "", shiny = FALSE) {
 }
 
 
-prepare_data_frame_term_sep_aa_all <- function(expdef = FALSE, data = Data_list, x = "/", ppm = 3.5, sep_term = FALSE, mod.number = 0, tint = FALSE, seq = seq){
+process_masslists <- function(expdef = FALSE, data = Data_list, x = "/", ppm = 3.5, sep_term = FALSE, mod.number = 0, tint = FALSE, seq = seq){
 
   Data_list_new <- data
 
   # get the sum of intensities of assigned peaks for both termini including both mod0 and mod1
-  if (tint == T)
-  {
-    Data_dir <- getwd()
-    TDL_out_dir <- paste0(Data_dir,"/")
 
-    fl <- list.files(TDL_out_dir, pattern = ".masslist") # Get vector with all the files
-
-    fl <- subset(fl, grepl("_C_0", fl) | grepl("_N_0", fl) | grepl("_C_1", fl) | grepl("_N_1", fl) | grepl("_C_2", fl) | grepl("_N_2", fl) | grepl("_C_3", fl) | grepl("_N_3", fl))
-
-    DL <- lapply(fl, function(x) {read.table(paste0(TDL_out_dir, x),
-                                             sep = "\t", stringsAsFactors = FALSE, header = TRUE) })
-
-    cluster <- max(substring(regmatches(file_list,
-                                        gregexpr("_C_[[:digit:]]|_N_[[:digit:]]", file_list)), 4, 5))
-
-    cluster <- as.numeric(cluster)*2 + 2
-
-    if (bound == TRUE)
-    {
-
-      DL <- by(seq_along(DL), cut(seq_along(DL),(length(DL)/cluster)), function(x)DL[x])
-    }
-    else DL <- by(seq_along(DL), cut(seq_along(DL),(length(DL)/2)), function(x)DL[x])
-    fl <- subset(fl, grepl("_C_0", fl))
-
-    names(DL) <- fl
-    totalint <- c(1:length(DL))
-
-    for (ind in 1:length(DL))
-    {
-      #discard all the unidentified peaks
-      DL_T <- lapply(DL[[ind]], function (x) {subset(x, !is.na(x$Sequence.position))})
-      #assign summarized intensities for experiment in one named vector
-      totalint[ind] <- sum(sapply(DL_T, function(x) {sum(x$Intensity)}))
-    }
-    if(bound == TRUE & sep_term == FALSE)
-    {
-      totalint <- rep(totalint, cluster)
-      names(totalint) <- file_list
-    }
-    else if(bound == TRUE & sep_term == TRUE)
-    {
-      totalint <- rep(totalint, cluster)
-      names(totalint) <- file_list
-    }
-    else  names(totalint) <- file_list
-  }
-  if (!exists("data_merged")) {
+  gList <- lapply(names(Data_list_new), function(x) {
     #Taking first entry of the list and working with it
-    experiment <- names(Data_list_new)[1]
+    experiment <- x
     #Getting rid of unassigned masses
     ass_peak_table <- Data_list_new[[experiment]]
     #Shaping the data frame with info from the entrie's name
-    if (nrow(ass_peak_table) >0){
+    if(nrow(ass_peak_table) > 0){
       ass_peak_table$exp.name <- experiment
       #source fragmentation value
       ass_peak_table$sf <- as.numeric(substr(experiment, regexpr("sf[0-9]+",experiment)+2,
@@ -355,15 +309,17 @@ prepare_data_frame_term_sep_aa_all <- function(expdef = FALSE, data = Data_list,
       ass_peak_table$Mass.shift[is.na(ass_peak_table$Mass.shift)] <- ""
 
       #ass_peak_table$frag.type <- paste0(ass_peak_table$Ion.type," ",ass_peak_table$Mass.shift)
-
-      for (i in 1:nrow(ass_peak_table))
-      {
-        if (ass_peak_table$Ion.type[i] == "A" | ass_peak_table$Ion.type[i] == "X") ass_peak_table$Ion.type.clust[i] <- "a/x"
-        else if (ass_peak_table$Ion.type[i] == "B" | ass_peak_table$Ion.type[i] == "Y") ass_peak_table$Ion.type.clust[i] <- "b/y"
-        else if (ass_peak_table$Ion.type[i] == "C" | ass_peak_table$Ion.type[i] == "Z") ass_peak_table$Ion.type.clust[i] <- "c/z"
-        else if (ass_peak_table$Ion.type[i] == "D" | ass_peak_table$Ion.type[i] == "V" | ass_peak_table$Ion.type[i] == "W") ass_peak_table$Ion.type.clust[i] <- "d/v/w"
-        else ass_peak_table$Ion.type.clust[i] <- ""
-      }
+      #categorize to more general fragment types
+      ass_peak_table <- as.data.frame(t(apply(ass_peak_table, 1, function(x) {
+        if (x["Ion.type"] == "A" | x["Ion.type"] == "X") x["Ion.type.clust"] <- "a/x"
+        else if (x["Ion.type"] == "B" | x["Ion.type"] == "Y") x["Ion.type.clust"] <- "b/y"
+        else if (x["Ion.type"] == "C" | x["Ion.type"] == "Z") x["Ion.type.clust"] <- "c/z"
+        else if (x["Ion.type"] == "D" | x["Ion.type"] == "V" | x["Ion.type"] == "W") x["Ion.type.clust"] <- "d/v/w"
+        else x["Ion.type.clust"] <- ""
+        #get rid of missing values in each row
+        x[which(is.na(x))] <- ""
+        x
+      })))
 
       ass_peak_table$Amino.acid <- as.factor(ass_peak_table$Amino.acid)
       #ass_peak_table <- within(ass_peak_table, frag.type <- ordered(frag.type, levels = rev(sort(unique(frag.type)))))
@@ -379,7 +335,6 @@ prepare_data_frame_term_sep_aa_all <- function(expdef = FALSE, data = Data_list,
 
       ass_peak_table$Log10.norm.intens.x.freq <- log10(ass_peak_table$norm.intens.x.freq)
 
-      ass_peak_table$uvpd_hcd_pres_iso_nat <- paste0(ass_peak_table$energy," ",ass_peak_table$hcd," ",ass_peak_table$Pressure," ",ass_peak_table$iso, " ", ass_peak_table$nat.denat)
       if(tint == TRUE)
       {
         fragef <- ass_peak_table %>% group_by(Sequence.position, Amino.acid) %>% summarise(fragef = sum(Intensity)/totalint[experiment])
@@ -390,138 +345,12 @@ prepare_data_frame_term_sep_aa_all <- function(expdef = FALSE, data = Data_list,
         if(bound == TRUE) fragef$mod <- ass_peak_table$mod[1]
       }
     }
-    else {data_merged <<- ass_peak_table}
-  }
-  if(!is.null(tint) & tint == TRUE & !is.null(nrow(ass_peak_table))) fragef_merged <<- fragef
-  data_merged <<- ass_peak_table
-
-  for (experiment in names(Data_list_new)[2:length(names(Data_list_new))])
-  {
-    ass_peak_table <- Data_list_new[[experiment]]
-
-    if (nrow(ass_peak_table) > 0)
-    {
-
-      ass_peak_table$exp.name <- experiment[1]
-      #Setting accuracy value, discarding everything that is less accurate
-
-      if (nrow(ass_peak_table) >0){
-
-        ass_peak_table$sf <- as.numeric(substr(experiment, regexpr("sf[0-9]+",experiment)+2,
-                                               regexpr("sf[0-9]+",experiment) + attr(regexpr("sf[0-9]+", experiment),"match.length") -1))
-        #hcd energy
-        ass_peak_table$hcd <- as.numeric(substr(experiment, regexpr("hcd[0-9]+",experiment)+3,
-                                                regexpr("hcd[0-9]+", experiment) + attr(regexpr("hcd[0-9]+", experiment), "match.length") -1) )
-        #laser energy
-        ass_peak_table$energy <- as.numeric(substr(experiment, regexpr("uvpd[0-9.]+",experiment)+4,
-                                                   regexpr("uvpd[0-9.]+", experiment) + attr(regexpr("uvpd[0-9.]+", experiment), "match.length")-1))
-
-        ass_peak_table$etd <- as.numeric(substr(experiment, regexpr("etd[0-9.]+",experiment)+3,
-                                                regexpr("etd[0-9.]+", experiment) + attr(regexpr("etd[0-9.]+", experiment), "match.length")-1))
-
-        ass_peak_table$cid <- as.numeric(substr(experiment, regexpr("cid[0-9.]+",experiment)+3,
-                                                regexpr("cid[0-9.]+", experiment) + attr(regexpr("cid[0-9.]+", experiment), "match.length")-1))
-
-
-        #peak intensity normalized by the sum of intensities of all peaks
-
-        ass_peak_table$iso <- substr(experiment, regexpr("iso[0-9]+", experiment) +3,
-                                     regexpr("iso[0-9]+", experiment) + attr(regexpr("iso[0-9]+", experiment), "match.length")-1)
-
-        ass_peak_table$puls <- substr(experiment, regexpr("puls[0-9]", experiment) +4, regexpr("puls[0-9]", experiment)+4)
-
-        ass_peak_table$enpuls <- paste0(ass_peak_table$energy, "x", ass_peak_table$puls)
-
-        ass_peak_table$Pressure <- substr(experiment, regexpr("pres[0-9]",experiment)+4, regexpr("pres[0-9]", experiment)+4)
-
-        ass_peak_table$nat.denat <- substr(experiment, regexpr("nat|denat", experiment),
-                                           regexpr("nat|denat", experiment) + attr(regexpr("nat|denat", experiment), "match.length")-1)
-
-        ass_peak_table$norm.intens <- ass_peak_table$Intensity/sum(ass_peak_table$Intensity)
-
-        ass_peak_table$Log10_int <- log10(ass_peak_table$Intensity)
-
-        ass_peak_table$log10.norm.intens <- log10(ass_peak_table$norm.intens)
-
-        intens_mean <- mean(ass_peak_table$norm.intens)
-        intens_sd <- sd(ass_peak_table$norm.intens)
-        ass_peak_table$norm.intens.Zscored <- (ass_peak_table$norm.intens - intens_mean)/intens_sd
-
-        ass_peak_table$seq.cov <- length(unique(ass_peak_table$Sequence.position))/(nchar(seq)-1)
-
-        ass_peak_table$term <- substr(experiment, regexpr("_C_0|_N_0|_C_1|_N_1|_C_2|_N_2|_C_3|_N_3", experiment)+1, regexpr("_C_0|_N_0|_C_1|_N_1|_C_2|_N_2|_C_3|_N_3", experiment)+1)
-
-        ass_peak_table$mod <- substr(experiment, regexpr("_C_0|_N_0|_C_1|_N_1|_C_2|_N_2|_C_3|_N_3", experiment)+3, regexpr("_C_0|_N_0|_C_1|_N_1|_C_2|_N_2|_C_3|_N_3", experiment)+3)
-
-        ass_peak_table$chg.iso <- paste0(ass_peak_table$Charge, " ", ass_peak_table$iso)
-
-        ass_peak_table$rep <- substr(experiment, regexpr("rep[0-9]+", experiment) +3,
-                                     regexpr("rep[0-9]+", experiment) + attr(regexpr("rep[0-9]+", experiment), "match.length")-1)
-
-        #ass_peak_table$position_frag_numbers <- sapply(ass_peak_table$Sequence.position, function(x){sum(subset(ass_peak_table$norm.intens,ass_peak_table$Sequence.position==x)) })
-        # ass_peak_table <- ass_peak_table[!duplicated(ass_peak_table$Sequence.position),]
-        # ass_peak_table <- ass_peak_table[order(ass_peak_table$Sequence.position), ]
-        # ass_peak_table$type.or.loss <- character(nrow(ass_peak_table))
-        #for (ind in 1:nrow(ass_peak_table)){
-        #   if(ass_peak_table$Mass.shift[ind] == "" | is.na(ass_peak_table$Mass.shift[ind])) ass_peak_table$type.or.loss[ind] <- ass_peak_table$Ion.type[ind]
-        #   else if (ass_peak_table$Mass.shift[ind] == "Ammonia loss") ass_peak_table$type.or.loss[ind] <- "_NH3_Loss"
-        #   else if (ass_peak_table$Mass.shift[ind] == "Water loss") ass_peak_table$type.or.loss[ind] <- "_H2O_Loss"
-        #  else ass_peak_table$type.or.loss[ind] <- "WTF????"
-        # }
-        if (expdef == TRUE)
-        {
-          if (ass_peak_table$energy > 0 & ass_peak_table$hcd == 1) ass_peak_table$exp <- "UVPD"
-          else if (ass_peak_table$hcd > 1 & !is.na(ass_peak_table$hcd))  ass_peak_table$exp <- "HCD"
-          else if (ass_peak_table$energy > 0 & ass_peak_table$hcd > 1) ass_peak_table$exp <- "UVhcpD"
-          else if (fusion == TRUE & ass_peak_table$etd > 0 & ass_peak_table$cid == 0 | is.na(ass_peak_table$cid)) ass_peak_table$exp <- "ETD"
-          else if (fusion == TRUE & ass_peak_table$cid > 0 & ass_peak_table$etd == 0) ass_peak_table$exp <- "CID"
-          else if (fusion == TRUE & ass_peak_table$cid > 0 & ass_peak_table$etd > 0) ass_peak_table$exp <- "ETciD"
-          else ass_peak_table$exp <- "hz"
-        }
-        ass_peak_table$Mass.shift[is.na(ass_peak_table$Mass.shift)] <- ""
-
-        #ass_peak_table$frag.type <- paste0(ass_peak_table$Ion.type," ",ass_peak_table$Mass.shift)
-
-        for (i in 1:nrow(ass_peak_table))
-        {
-          if (ass_peak_table$Ion.type[i] == "A" | ass_peak_table$Ion.type[i] == "X") ass_peak_table$Ion.type.clust[i] <- "a/x"
-          else if (ass_peak_table$Ion.type[i] == "B" | ass_peak_table$Ion.type[i] == "Y") ass_peak_table$Ion.type.clust[i] <- "b/y"
-          else if (ass_peak_table$Ion.type[i] == "C" | ass_peak_table$Ion.type[i] == "Z") ass_peak_table$Ion.type.clust[i] <- "c/z"
-          else if (ass_peak_table$Ion.type[i] == "D" | ass_peak_table$Ion.type[i] == "V" | ass_peak_table$Ion.type[i] == "W") ass_peak_table$Ion.type.clust[i] <- "d/v/w"
-          else ass_peak_table$Ion.type.clust[i] <- ""
-        }
-
-        ass_peak_table$Amino.acid <- as.factor(ass_peak_table$Amino.acid)
-        #ass_peak_table <- within(ass_peak_table, frag.type <- ordered(frag.type, levels = rev(sort(unique(frag.type)))))
-
-        #get amino acid composition of the protein and make vector of frequencies with aminoacid letters as names
-        aa_table <- lapply(strsplit(seq,""), table)
-        aa_df <- as.data.frame(aa_table)
-        aa_vector <- aa_df$Freq
-        names(aa_vector) <- aa_df$Var1
-
-        #normalize normalized intensity by aminoacid frequencies in vector aa_vector in accordance with $Amino.acid
-        ass_peak_table$norm.intens.x.freq <- ass_peak_table$norm.intens/aa_vector[as.character(ass_peak_table$Amino.acid)]
-
-        ass_peak_table$Log10.norm.intens.x.freq <- log10(ass_peak_table$norm.intens.x.freq)
-
-        ass_peak_table$uvpd_hcd_pres_iso_nat <- paste0(ass_peak_table$energy," ",ass_peak_table$hcd," ",ass_peak_table$Pressure," ",ass_peak_table$iso, " ", ass_peak_table$nat.denat)
-        if(tint == TRUE)
-        {
-          fragef <- ass_peak_table %>% group_by(Sequence.position, Amino.acid) %>% summarise(fragef = sum(Intensity)/totalint[experiment])
-          fragef$enpuls <- ass_peak_table$enpuls[1]
-          fragef$etd <- ass_peak_table$etd[1]
-          fragef$cid <- ass_peak_table$cid[1]
-          fragef$hcd <- ass_peak_table$hcd[1]
-          if(bound == TRUE) fragef$mod <- ass_peak_table$mod[1]
-        }
-        data_merged <<- merge(data_merged,ass_peak_table, all = TRUE, sort = FALSE)
-        if(tint == TRUE & exists("fragef_merged") & nrow(ass_peak_table) > 0) fragef_merged <<- merge(fragef_merged, fragef, all = TRUE, sort = FALSE)
-        else if (tint == TRUE & nrow(ass_peak_table) > 0) fragef_merged <<- fragef
-      }
-    }
-  }
+   ass_peak_table
+  })
+  names(gList) <- names(Data_list_new)
+  gDF <- bind_rows(gList)
   print("Merged data frame completed")
+  data_merged <- gDF
   data_merged
 }
 

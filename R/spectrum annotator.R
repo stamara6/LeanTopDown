@@ -54,23 +54,10 @@ annotate_spectrum <- function(data = gList, dir2 = "", dir3 = "",
 
   df <- do.call("rbind", gList)
   fdf <- do.call("rbind", gfrgsL)
-  # fdf$mod <- as.character(fdf$mod)
-  # fdf[fdf$mod == "0","mod"] <- ""
-  # fdf[fdf$mod == "1","mod"] <- "P"
-  # fdf[fdf$mod == "2","mod"] <- "PP"
-  # df$mod <- as.character(df$mod)
-  # df[df$mod == "0","mod"] <- ""
-  # df[df$mod == "1","mod"] <- "P"
-  # df[df$mod == "2","mod"] <- "PP"
+
   df$calib.ppm <- df$Accuracy..PPM. - df$m.z.calibration
   fdf$calib.ppm <- fdf$Accuracy..PPM. - fdf$m.z.calibration
   df <- distinct(df, m.z, Intensity, exp)
-  #fdf <- distinct(fdf, m.z, Intensity, exp, Sequence.position, Ion.type, Mass.shift, mod)
-  #df$exp <- factor(df$exp, levels = c("sa20", "sa25"), labels = c("sa20","sa25"))
-  #df$exp <- regmatches(df$exp, gregexpr("hcd[[:digit:]]+_etd[[:digit:]]+_sa[[:digit:]]+", df$exp))
-  #fdf$exp <- regmatches(fdf$exp, gregexpr("hcd[[:digit:]]+_etd[[:digit:]]+_sa[[:digit:]]+", fdf$exp))
-  #fdf$exp <- unlist(fdf$exp)
-  #df$exp <- unlist(df$exp)
 
   for (i in 1:nrow(fdf))
   {
@@ -87,6 +74,7 @@ annotate_spectrum <- function(data = gList, dir2 = "", dir3 = "",
     df$Intensity <- 100/max(df$Intensity)*df$Intensity
     fdf$Intensity <- 100/max(fdf$Intensity)*fdf$Intensity
   }
+
   df$iso <- round(as.numeric(gsub('.*_([[:digit:]]+.[[:digit:]]+).txt.*','\\1',df$exp)),2)
   fdf$iso <- round(as.numeric(gsub('.*_([[:digit:]]+.[[:digit:]]+).txt.*','\\1',fdf$exp)),2)
   fdf$mod <- as.factor(fdf$mod)
@@ -142,17 +130,6 @@ annotate_spectrum <- function(data = gList, dir2 = "", dir3 = "",
 #'
 #' @examples
 fragment_map <- function(data = data_merged, subset = FALSE, uvhcpd = FALSE, Plot_title_suffix = "", Plot_dir_name = "plot/", Plot_file_name = "pin1_6al7_2phos_sty", Plot_width = 3, Plot_height = 10, seq = seq) {
-
-  #Data_dir <- getwd()
-
-  #data$energy <- as.numeric(data$energy)
-
-  #if(subset == TRUE) data <- subset(data, abs(data$calib.ppm) <= 1.0)
-  if(uvhcpd == TRUE) ass_data_merged$uvhcpd <- paste0(ass_data_merged$hcd,"Vx",ass_data_merged$energy, "mJ")
-  cols <- c('#e31a1c','#33a02c','#6a3d9a','#e31a1c','#33a02c',
-            '#6a3d9a')
-  cols1 <- c('#000000', "#7f0000", '#d7301f','#fed976')
-  #df$energy[is.na(df$energy)] <- 0
 
   s <- strsplit(seq, "")
   sty <- which(s[[1]] == "S" | s[[1]] == "Y" | s[[1]] == "T")

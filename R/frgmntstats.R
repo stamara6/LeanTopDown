@@ -27,14 +27,14 @@
 #' @export
 #'
 #' @examples
-fragment_charges <- function(data = data_merged, pep = FALSE, ppm = 3.5, seq = seq) {
+fragment_charges <- function(data = data_merged, seq = seq) {
 
   data <- data[order(data$term, decreasing = TRUE),]
 
 
   #sequence <- unlist(strsplit(seq, split = ""))
   #names(sequence) <- c(1:nchar(seq))
-  plot_gg <- ggplot(data[abs(as.numeric(data$calib.ppm)) <= ppm,], aes(x = Sequence.position, y = Charge)) +
+  plot_gg <- ggplot(data, aes(x = Sequence.position, y = Charge)) +
     geom_point(stat = "identity", aes(shape = Ion.type.clust, color = mod, size = Intensity)) +
     scale_y_continuous(breaks = seq(0,ceiling(max(as.numeric(data$Charge))), by = 1), limits = c(0.5, ceiling(max(as.numeric(data$Charge))))) +
     scale_x_continuous(breaks = seq(0,length(strsplit(seq, split = "")[[1]]), by = 10)) +
@@ -60,7 +60,7 @@ fragment_charges <- function(data = data_merged, pep = FALSE, ppm = 3.5, seq = s
 #' @examples
 termini_sequence_coverage <- function(data = data_merged, ppm = 3.5){
 
-  seq_cov_data <- data[!duplicated(data$exp.name),]
+  seq_cov_data <- data[!duplicated(data$exp),]
 
   #Determine values for text plotting
   seq_cov_data <- ddply(seq_cov_data,"seq.cov", transform, perc_cov = seq.cov*100)
@@ -103,7 +103,7 @@ termini_sequence_coverage <- function(data = data_merged, ppm = 3.5){
 #' @export
 #'
 #' @examples
-fragment_types <- function(data = data_merged, ppm = 3.5){
+fragment_types <- function(data = data_merged){
   #plotting of by xa and zc ions stacked horizontally and with hcd facetting (count labelling for each pair of frags)
   require(plyr)
 
@@ -113,7 +113,7 @@ fragment_types <- function(data = data_merged, ppm = 3.5){
   #                    levels = c(0, 1, 2),
   #                    labels = c("No modification", "1 phospho site", "2 phospho sites"))
 
-  plot_gg <- ggplot(data[data$calib.ppm <= 3.5,], aes(x = frag.type, y = norm.intens.Zscored)) +
+  plot_gg <- ggplot(data, aes(x = frag.type, y = norm.intens.Zscored)) +
     geom_boxplot(aes(fill = Ion.type.clust), size = .5) +
     #stat_params = list(binwidth = ) +
     scale_y_continuous(expand = c(0,0)) +

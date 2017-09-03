@@ -7,10 +7,10 @@
 #    http://shiny.rstudio.com/
 #
 
-source("helpers.R", local = TRUE)
-source("spectrum annotator.R", local = TRUE)
-source("freqflyers.R", local = TRUE)
-source("frgmntstats.R", local = TRUE)
+# source("C:\\Users\\stama\\OneDrive\\Documents\\R\\Projects\\LeanTopDown\\R/helpers.R", local = TRUE)
+# source("C:\\Users\\stama\\OneDrive\\Documents\\R\\Projects\\LeanTopDown\\R/spectrum annotator.R", local = TRUE)
+# source("C:\\Users\\stama\\OneDrive\\Documents\\R\\Projects\\LeanTopDown\\R/freqflyers.R", local = TRUE)
+# source("C:\\Users\\stama\\OneDrive\\Documents\\R\\Projects\\LeanTopDown\\R/frgmntstats.R", local = TRUE)
 
 
 library(shiny)
@@ -21,7 +21,7 @@ library(shinyjs)
 library(logging)
 library(shinycssloaders)
 library(shinydashboard)
-library(LeanTopDown)
+#library(LeanTopDown)
 library(gridExtra)
 
 ui <- dashboardPage(
@@ -56,11 +56,13 @@ ui <- dashboardPage(
                                        ),
               actionButton("plot", "Plot"),
               downloadButton("saveplot", "Save Plot"),
+              numericInput("width", "Plot Width", 480, 320, 5120, 160),
+              numericInput("height", "Plot Height", 400, 320, 5120, 160),
               radioButtons("filetype", "Save as:",
                            choices = c("pdf", "png")),
               textInput("filename", "File name:", ""),
               uiOutput("mzRange"),
-              checkboxInput("masslists", "Process Masslists", FALSE),
+              checkboxInput("masslists", "Combine Masslists", FALSE),
               fileInput("fileIn", "Upload Masslists", TRUE),
               actionLink("selectall","Select All"),
               checkboxGroupInput("selectFiles", "Select Spectra", c("1" = "1"))
@@ -132,7 +134,6 @@ ui <- dashboardPage(
 
 #options(shiny.error = browser)
 
-
 server <- function(input, output, session) {
 
   df <- reactive({
@@ -145,7 +146,7 @@ server <- function(input, output, session) {
     for (i in seq_along(inFiles$datapath)) {
       if(!grepl(".txt|.masslist|.csv",inFiles$datapath[i])) next
 
-      df[[i]] <- read.table(inFiles$datapath[i], header = TRUE, sep = "\t")
+      df[[i]] <- read.table(inFiles$datapath[i], header = TRUE, sep = "\t", stringsAsFactors = FALSE)
       if("Intensity" %in% colnames(df[[i]]))df[[i]]$modInt <- 100/max(df[[i]]$Intensity)*df[[i]]$Intensity
 
     }
@@ -153,33 +154,13 @@ server <- function(input, output, session) {
     names(df) <- inFiles$name[grepl(".txt|.masslist|.csv", inFiles$name)]
     if(input$masslists == TRUE) {
       inFiles <<- input$fileIn
-      df <- prepare_masslists(shiny = TRUE)
+      df <- combine_masslists(shiny = TRUE)
     }
 
     df
 
   })
 
-  df2 <- reactive({
-
-    inFiles <- input$fileIn2
-
-    df <- list()
-    if (is.null(inFiles))
-      return(NULL)
-    for (i in seq_along(inFiles$datapath)) {
-      if(!grepl(".txt|.masslist|.csv",inFiles$datapath[i])) next
-
-      df[[i]] <- read.table(inFiles$datapath[i], header = TRUE, sep = "\t")
-      if("Intensity" %in% colnames(df[[i]]))df[[i]]$modInt <- 100/max(df[[i]]$Intensity)*df[[i]]$Intensity
-
-    }
-    df <- df[!sapply(df, is.null)]
-    names(df) <- inFiles$name[grepl(".txt|.masslist|.csv", inFiles$name)]
-
-    df
-
-  })
 
 
   observe({
@@ -193,7 +174,17 @@ server <- function(input, output, session) {
 
   })
 
+  width <- reactive({width <- input$width})
 
+  height <- reactive({height <- input$height})
+
+  output$boxwidth <- renderUI({
+    width <- width()
+  })
+
+  output$boxheight <- renderUI({
+    height <- height()
+  })
 
   observe({
 
@@ -209,8 +200,6 @@ server <- function(input, output, session) {
 
   ranges <- reactiveValues(x = NULL, y = NULL)
 
-
-
   observeEvent(input$plotDC, {
     brush <- input$plotBrush
     if(!is.null(brush)) {
@@ -224,19 +213,15 @@ server <- function(input, output, session) {
 
   output$mzRange <- renderUI({
     data <- df()
-    data <- do.call("rbind", data)
+    data <- data[names(data) %in% chosenspectra()]
+    minmz <- min(bind_rows(data)$m.z)
+    maxmz <- max(bind_rows(data)$m.z)
+    #data <- do.call("rbind", data)
     #if(exists(data$Mz)) colnames(data)[colnames(data) == "Mz"] <- "m.z"
     sliderInput("range", "m/z Range (for correlation):",
-                min = min(data$m.z), max = max(data$m.z), value = c(min(data$m.z), max(data$m.z)))
+                min = 0, max = maxmz, value = c(0, round(maxmz, 2)))
   })
 
-  # output$mzRange2 <- renderUI({
-  #   data <- df2()
-  #   data <- do.call("rbind", data)
-  #   #if(exists(data$Mz)) colnames(data)[colnames(data) == "Mz"] <- "m.z"
-  #   sliderInput("range", "m/z Range (for correlation):",
-  #               min = min(data$m.z), max = max(data$m.z), value = c(1000,5000))
-  # })
 
 
   inputPlotMir <- function() {
@@ -255,7 +240,7 @@ server <- function(input, output, session) {
     frfplot
   }
   inputPlotFrs <- function() {
-    grid.arrange(zplot, frtplot)
+    grid.arrange(frtplot)
   }
   inputPlotErp <- function() {
     erpplot
@@ -277,7 +262,7 @@ server <- function(input, output, session) {
                                        ggsave(file, plot = inputPlot, device = input$filetype)})
 
   chosenspectra <- eventReactive(input$plot, {
-
+    ranges$x <<- c(input$range[1], input$range[2])
     subspectra <- input$selectFiles
 
   })
@@ -285,16 +270,19 @@ server <- function(input, output, session) {
   output$mirPlot <- renderPlot({
     #browser()
     data <- df()
-    if(is.null(ranges$x)) {ranges$x <- c(input$range[1], input$range[2])
-    ranges$y <- c(-100, 100)}
+    ranges$x <- c(input$range[1], input$range[2])
+    ranges$y <- c(-100, 100)
     subspectra <- chosenspectra()
     raw1 <- data[[subspectra[1]]]
     raw2 <- data[[subspectra[2]]]
+
     #colnames(raw1)[grepl("m.z|Mz|M.z|M.Z")] <- "Mz"
-    mirplot <<- ggplot(raw1, aes(x = m.z, y = Intensity/max(Intensity)*100)) +
+    mirplot <<- ggplot(raw1[raw1$m.z <= input$range[2] & raw1$m.z >= input$range[1],],
+                       aes(x = m.z, y = Intensity/max(Intensity)*100)) +
       theme_bw() +
       geom_histogram(stat = "identity", color = "black") +
-      geom_histogram(data = raw2, aes(x = m.z, y = -Intensity/max(Intensity)*100), stat = "identity", color = "red") +
+      geom_histogram(data = raw2[raw2$m.z <= input$range[2] & raw2$m.z >= input$range[1],],
+                     aes(x = m.z, y = -Intensity/max(Intensity)*100), stat = "identity", color = "red") +
       geom_hline(yintercept = 0) +
 
       scale_y_continuous(limits = ranges$y) +
@@ -303,7 +291,7 @@ server <- function(input, output, session) {
       ylab("Normalized Intensities")
 
     print(mirplot)
-    }
+    }, width = function(){width()}, height = function(){height()}
   )
 
   output$info <- renderText({
@@ -337,9 +325,8 @@ server <- function(input, output, session) {
 
     corplot <<- ggcorrplot(corMatrix, method = "square", hc.order = TRUE, lab = TRUE)
     print(corplot)
-    },
-    width = 1000,
-    height = 1000)
+    }, width = function(){width()}, height = function(){height()}
+    )
 
   output$spectrum <- renderPlot({
 
@@ -347,11 +334,20 @@ server <- function(input, output, session) {
     subspectra <- chosenspectra()
 #browser()
     inFiles <- input$fileIn
-    gList <<- data[subspectra]
+    gList <- data[subspectra]
+    ranges$x <<- c(input$range[1], input$range[2])
     ranges$y <<- c(0, 100)
+    gList <<- lapply(names(gList), function(x) {
+      df <- gList[[x]]
+      df <- df[df$m.z <= input$range[2] & df$m.z >= input$range[1],]
+      df$Intensity <- df$Intensity/max(df$Intensity)*100
+      df
+    })
+    names(gList) <<- subspectra
     spaplot <<- annotate_spectrum(data = gList, ranges = ranges)
     print(spaplot)
-  })
+  }, width = function(){width()}, height = function(){height()}
+)
 
   output$fragmap <- renderPlot({
 
@@ -361,20 +357,20 @@ server <- function(input, output, session) {
     rm("data_merged", "Data_list", pos = ".GlobalEnv")
     #gList <- data
     #browser()
-    Data_list <<- import_masslists(bound = TRUE, mod.number = input$modnum, shiny = TRUE, files = inFiles)
-    data_merged <<- prepare_data_frame_term_sep_aa_all(sep_term = TRUE,
-                                                                        mod.number = input$modnum,
-                                                                        ppm = input$ppm, tint = FALSE, seq = seq)
-    frmplot <<- fragment_map(seq = seq)
+    if(!input$masslists) Data_list <- import_masslists(bound = TRUE, mod.number = input$modnum, shiny = TRUE, files = inFiles)
+    else Data_list <- df()[names(df()) %in% chosenspectra()]
+    data_merged <- process_masslists(data = Data_list, ppm = input$ppm, tint = FALSE,
+                                                       seq = seq, bound = input$masslists)
+    frmplot <<- fragment_map(data = data_merged, seq = seq)
     print(frmplot)
-  })
+  }, width = function(){width()}, height = function(){height()})
 
   output$freqfls <- renderPlot({
 
     file <- input$freqfile
     frfplot <<- frqfls(file = file$datapath)
     frfplot
-  })
+  }, width = function(){width()}, height = function(){height()})
 
 
 
@@ -385,16 +381,17 @@ server <- function(input, output, session) {
       rm("data_merged", "Data_list", pos = ".GlobalEnv")
 
       #browser()
-      Data_list <<- import_masslists(bound = TRUE, mod.number = input$modnum, shiny = TRUE, files = inFiles)
-      data_merged <<- prepare_data_frame_term_sep_aa_all(sep_term = TRUE,
-                                                         mod.number = input$modnum,
-                                                         ppm = input$ppm, tint = FALSE, seq = seq)
+      if(!input$masslists) Data_list <- import_masslists(bound = TRUE, mod.number = input$modnum, shiny = TRUE, files = inFiles)
+      else Data_list <- df()[names(df()) %in% chosenspectra()]
+      data_merged <- process_masslists(data = Data_list, ppm = input$ppm,
+                                                        tint = FALSE, seq = seq,
+                                                        bound = input$masslists)
       if(length(unique(data_merged$Charge)) == 1) return()
-      zplot <<- fragment_charges(data = data_merged)
+      zplot <<- fragment_charges(data = data_merged, seq = seq)
 
       zplot
 
-    }
+    }, width = function(){width()}, height = function(){height()}
   )
 
 
@@ -405,16 +402,16 @@ server <- function(input, output, session) {
       rm("data_merged", "Data_list", pos = ".GlobalEnv")
 
       #browser()
-      Data_list <<- import_masslists(bound = TRUE, mod.number = input$modnum, shiny = TRUE, files = inFiles)
-      data_merged <<- prepare_data_frame_term_sep_aa_all(sep_term = TRUE,
-                                                         mod.number = input$modnum,
-                                                         ppm = input$ppm, tint = FALSE, seq = seq)
-
-      frtplot <<- fragment_types(data = data_merged, ppm = input$ppm)
+      if(!input$masslists) Data_list <- import_masslists(bound = TRUE, mod.number = input$modnum, shiny = TRUE, files = inFiles)
+      else Data_list <- df()[names(df()) %in% chosenspectra()]
+      data_merged <- process_masslists(data = Data_list, ppm = input$ppm,
+                                       tint = FALSE, seq = seq,
+                                       bound = input$masslists)
+      frtplot <<- fragment_types(data = data_merged)
 
       frtplot
 
-    }
+    }, width = function(){width()}, height = function(){height()}
   )
 
   output$tscplot <- renderPlot(
@@ -433,7 +430,7 @@ server <- function(input, output, session) {
 
       tscplot
 
-    }
+    }, width = function(){width()}, height = function(){height()}
   )
 
 }

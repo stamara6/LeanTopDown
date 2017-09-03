@@ -104,6 +104,8 @@ if(!shiny){
   Data_list <- lapply(file_list, function(x) {read.table(x,
                                                        sep = "\t", stringsAsFactors = FALSE, header = TRUE) })
   names(Data_list) <- file_names
+
+  Data_list
 }
 
   Data_list
@@ -155,6 +157,13 @@ combine_masslists <- function(dir = "", shiny = FALSE) {
       n1 <- l[[5]]
       n2 <- l[[6]]
 
+      c$term <- "C"
+      c1$term <- "C"
+      c2$term <- "C"
+      n$term <- "N"
+      n1$term <- "N"
+      n2$term <- "N"
+
       c[is.na(c$Ion.type), "Ion.type"] <- ""
       c1[is.na(c1$Ion.type), "Ion.type"] <- ""
       c2[is.na(c2$Ion.type), "Ion.type"] <- ""
@@ -162,9 +171,9 @@ combine_masslists <- function(dir = "", shiny = FALSE) {
       n1[is.na(n1$Ion.type), "Ion.type"] <- ""
       n2[is.na(n2$Ion.type), "Ion.type"] <- ""
 
-      c[c$Ion.type == "",5:10] <- n[c$Ion.type == "",5:10]
-      c1[c1$Ion.type == "",5:10] <- n1[c1$Ion.type == "",5:10]
-      c2[c2$Ion.type == "",5:10] <- n2[c2$Ion.type == "",5:10]
+      c[c$Ion.type == "",5:11] <- n[c$Ion.type == "",5:11]
+      c1[c1$Ion.type == "",5:11] <- n1[c1$Ion.type == "",5:11]
+      c2[c2$Ion.type == "",5:11] <- n2[c2$Ion.type == "",5:11]
 
       c$mod = 0
       c1$mod = 1
@@ -230,7 +239,20 @@ combine_masslists <- function(dir = "", shiny = FALSE) {
 }
 
 
-process_masslists <- function(expdef = FALSE, data = Data_list, x = "/", ppm = 3.5, sep_term = FALSE, mod.number = 0, tint = FALSE, seq = seq){
+#' Title
+#'
+#' @param expdef
+#' @param data
+#' @param x
+#' @param ppm
+#' @param tint
+#' @param seq
+#'
+#' @return
+#' @export
+#'
+#' @examples
+process_masslists <- function(expdef = FALSE, data = Data_list, x = "/", ppm = 3.5, tint = FALSE, seq = seq, bound = FALSE){
 
   Data_list_new <- data
 
@@ -243,7 +265,13 @@ process_masslists <- function(expdef = FALSE, data = Data_list, x = "/", ppm = 3
     ass_peak_table <- Data_list_new[[experiment]]
     #Shaping the data frame with info from the entrie's name
     if(nrow(ass_peak_table) > 0){
-      ass_peak_table$exp.name <- experiment
+      ass_peak_table$exp <- experiment
+
+      ass_peak_table$calib.ppm <- ass_peak_table$Accuracy..PPM. - ass_peak_table$m.z.calibration
+
+      #Setting accuracy value, discarding everything that is less accurate
+      ass_peak_table <- subset(ass_peak_table, abs(ass_peak_table$calib.ppm) <= ppm)
+
       #source fragmentation value
       ass_peak_table$sf <- as.numeric(substr(experiment, regexpr("sf[0-9]+",experiment)+2,
                                              regexpr("sf[0-9]+",experiment) + attr(regexpr("sf[0-9]+", experiment),"match.length") -1))
@@ -284,17 +312,16 @@ process_masslists <- function(expdef = FALSE, data = Data_list, x = "/", ppm = 3
       intens_sd <- sd(ass_peak_table$norm.intens)
       ass_peak_table$norm.intens.Zscored <- (ass_peak_table$norm.intens - intens_mean)/intens_sd
 
+      ass_peak_table$frag.type <- paste0(ass_peak_table$Ion.type," ",ass_peak_table$Mass.shift)
+
       ass_peak_table$seq.cov <- length(unique(ass_peak_table$Sequence.position))/(nchar(seq)-1)
 
-      ass_peak_table$term <- substr(experiment, regexpr("_C_0|_N_0|_C_1|_N_1|_C_2|_N_2|_C_3|_N_3", experiment)+1, regexpr("_C_0|_N_0|_C_1|_N_1|_C_2|_N_2|_C_3|_N_3", experiment)+1)
+      if(!bound) ass_peak_table$term <- substr(experiment, regexpr("_C_0|_N_0|_C_1|_N_1|_C_2|_N_2|_C_3|_N_3", experiment)+1, regexpr("_C_0|_N_0|_C_1|_N_1|_C_2|_N_2|_C_3|_N_3", experiment)+1)
 
-      ass_peak_table$mod <- substr(experiment, regexpr("_C_0|_N_0|_C_1|_N_1|_C_2|_N_2|_C_3|_N_3", experiment)+3, regexpr("_C_0|_N_0|_C_1|_N_1|_C_2|_N_2|_C_3|_N_3", experiment)+3)
-
-      ass_peak_table$chg.iso <- paste0(ass_peak_table$Charge, " ", ass_peak_table$iso)
+      if(!bound) ass_peak_table$mod <- substr(experiment, regexpr("_C_0|_N_0|_C_1|_N_1|_C_2|_N_2|_C_3|_N_3", experiment)+3, regexpr("_C_0|_N_0|_C_1|_N_1|_C_2|_N_2|_C_3|_N_3", experiment)+3)
 
       ass_peak_table$rep <- substr(experiment, regexpr("rep[0-9]+", experiment) +3,
                                    regexpr("rep[0-9]+", experiment) + attr(regexpr("rep[0-9]+", experiment), "match.length")-1)
-
 
       if (expdef == TRUE)
       {
@@ -317,9 +344,9 @@ process_masslists <- function(expdef = FALSE, data = Data_list, x = "/", ppm = 3
         else if (x["Ion.type"] == "D" | x["Ion.type"] == "V" | x["Ion.type"] == "W") x["Ion.type.clust"] <- "d/v/w"
         else x["Ion.type.clust"] <- ""
         #get rid of missing values in each row
-        x[which(is.na(x))] <- ""
+        #x[which(is.na(x))] <- ""
         x
-      })))
+      })), stringsAsFactors = FALSE)
 
       ass_peak_table$Amino.acid <- as.factor(ass_peak_table$Amino.acid)
       #ass_peak_table <- within(ass_peak_table, frag.type <- ordered(frag.type, levels = rev(sort(unique(frag.type)))))
@@ -330,11 +357,6 @@ process_masslists <- function(expdef = FALSE, data = Data_list, x = "/", ppm = 3
       aa_vector <- aa_df$Freq
       names(aa_vector) <- aa_df$Var1
 
-      #normalize normalized intensity by aminoacid frequencies in vector aa_vector in accordance with $Amino.acid
-      ass_peak_table$norm.intens.x.freq <- ass_peak_table$norm.intens/aa_vector[as.character(ass_peak_table$Amino.acid)]
-
-      ass_peak_table$Log10.norm.intens.x.freq <- log10(ass_peak_table$norm.intens.x.freq)
-
       if(tint == TRUE)
       {
         fragef <- ass_peak_table %>% group_by(Sequence.position, Amino.acid) %>% summarise(fragef = sum(Intensity)/totalint[experiment])
@@ -344,6 +366,17 @@ process_masslists <- function(expdef = FALSE, data = Data_list, x = "/", ppm = 3
         fragef$hcd <- ass_peak_table$hcd[1]
         if(bound == TRUE) fragef$mod <- ass_peak_table$mod[1]
       }
+
+      ass_peak_table$m.z <- as.numeric(ass_peak_table$m.z)
+      ass_peak_table$m.z.calibration <- as.numeric(ass_peak_table$m.z.calibration)
+      ass_peak_table$Intensity <- as.numeric(ass_peak_table$Intensity)
+      ass_peak_table$Sequence.position <- as.numeric(ass_peak_table$Sequence.position)
+      ass_peak_table$Series.number <- as.numeric(ass_peak_table$Series.number)
+      ass_peak_table$Accuracy..PPM. <- as.numeric(ass_peak_table$Accuracy..PPM.)
+      ass_peak_table$norm.intens <- as.numeric(ass_peak_table$norm.intens)
+      ass_peak_table$Log10_int <- as.numeric(ass_peak_table$Log10_int)
+      ass_peak_table$norm.intens.Zscored <- as.numeric(ass_peak_table$norm.intens.Zscored)
+      #ass_peak_table$seq_cov <- as.numeric(ass_peak_table$seq_cov)
     }
    ass_peak_table
   })

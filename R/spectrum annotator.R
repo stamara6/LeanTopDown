@@ -58,6 +58,7 @@ annotate_spectrum <- function(data = gList, dir2 = "", dir3 = "",
   df$calib.ppm <- df$Accuracy..PPM. - df$m.z.calibration
   fdf$calib.ppm <- fdf$Accuracy..PPM. - fdf$m.z.calibration
   df <- distinct(df, m.z, Intensity, exp)
+  fdf$Ion.type[is.na(fdf$Ion.type)] <- ""
 
   for (i in 1:nrow(fdf))
   {
@@ -74,9 +75,9 @@ annotate_spectrum <- function(data = gList, dir2 = "", dir3 = "",
     df$Intensity <- 100/max(df$Intensity)*df$Intensity
     fdf$Intensity <- 100/max(fdf$Intensity)*fdf$Intensity
   }
-
-  df$iso <- round(as.numeric(gsub('.*_([[:digit:]]+.[[:digit:]]+).txt.*','\\1',df$exp)),2)
-  fdf$iso <- round(as.numeric(gsub('.*_([[:digit:]]+.[[:digit:]]+).txt.*','\\1',fdf$exp)),2)
+  #TODO get appropriate filenames
+  #df$iso <- round(as.numeric(gsub('.*_([[:digit:]]+.[[:digit:]]+).txt.*','\\1',df$exp)),2)
+  #fdf$iso <- round(as.numeric(gsub('.*_([[:digit:]]+.[[:digit:]]+).txt.*','\\1',fdf$exp)),2)
   fdf$mod <- as.factor(fdf$mod)
   plot_gg <- ggplot(df) + theme_bw() +
     geom_bar(aes(x = m.z, y = Intensity), stat = "identity", color = "Black", size = .5) +

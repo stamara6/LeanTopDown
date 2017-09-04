@@ -193,6 +193,11 @@ combine_masslists <- function(dir = "", shiny = FALSE) {
         n <- l[[3]]
         n1 <- l[[4]]
 
+        c$term <- "C"
+        c1$term <- "C"
+        n$term <- "N"
+        n1$term <- "N"
+
 
         c[is.na(c$Ion.type), "Ion.type"] <- ""
         c1[is.na(c1$Ion.type), "Ion.type"] <- ""
@@ -201,8 +206,8 @@ combine_masslists <- function(dir = "", shiny = FALSE) {
         n1[is.na(n1$Ion.type), "Ion.type"] <- ""
 
 
-        c[c$Ion.type == "",5:10] <- n[c$Ion.type == "",5:10]
-        c1[c1$Ion.type == "",5:10] <- n1[c1$Ion.type == "",5:10]
+        c[c$Ion.type == "",5:11] <- n[c$Ion.type == "",5:11]
+        c1[c1$Ion.type == "",5:11] <- n1[c1$Ion.type == "",5:11]
 
 
         c$mod = 0
@@ -221,7 +226,10 @@ combine_masslists <- function(dir = "", shiny = FALSE) {
         c <- l[[1]]
         n <- l[[2]]
 
-        c[c$Ion.type == "", 5:10] <- n[c$Ion.type == "", 5:10]
+        c$term <- "C"
+        n$term <- "N"
+
+        c[c$Ion.type == "", 5:11] <- n[c$Ion.type == "", 5:11]
         c$mod = 0
 
         cn <- c

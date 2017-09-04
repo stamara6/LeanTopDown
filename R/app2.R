@@ -240,7 +240,7 @@ server <- function(input, output, session) {
     frfplot
   }
   inputPlotFrs <- function() {
-    grid.arrange(frtplot)
+    grid.arrange(frtplot, zplot)
   }
   inputPlotErp <- function() {
     erpplot

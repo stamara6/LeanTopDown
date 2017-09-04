@@ -30,12 +30,13 @@
 fragment_charges <- function(data = data_merged, seq = seq) {
 
   data <- data[order(data$term, decreasing = TRUE),]
-
+  data$Charge <- as.numeric(data$Charge)
+  data$calib.ppm <- as.numeric(data$calib.ppm)
 
   #sequence <- unlist(strsplit(seq, split = ""))
   #names(sequence) <- c(1:nchar(seq))
   plot_gg <- ggplot(data, aes(x = Sequence.position, y = Charge)) +
-    geom_point(stat = "identity", aes(shape = Ion.type.clust, color = mod, size = Intensity)) +
+    geom_point(stat = "identity", aes(shape = Ion.type.clust, color = mod, size = Intensity, alpha = (-1)*abs(calib.ppm))) +
     scale_y_continuous(breaks = seq(0,ceiling(max(as.numeric(data$Charge))), by = 1), limits = c(0.5, ceiling(max(as.numeric(data$Charge))))) +
     scale_x_continuous(breaks = seq(0,length(strsplit(seq, split = "")[[1]]), by = 10)) +
     scale_shape_discrete(name = "Ion Type\nSeries") +

@@ -72,20 +72,20 @@ ui <- dashboardPage(
               )),
               dashboardBody(
                      tabsetPanel(
-                       tabPanel("mirRaw Plot", box(withSpinner(plotOutput("mirPlot", hover = "plotHover",
+                       tabPanel("mirRaw Plot", withSpinner(plotOutput("mirPlot", hover = "plotHover",
                                                           brush = brushOpts("plotBrush", resetOnNew = TRUE),
-                                                          dblclick = "plotDC"))),
+                                                          dblclick = "plotDC")),
                                                 value = "mir"),
-                       tabPanel("Correlation Plot", box(withSpinner(plotOutput("corPlot"))),  value = "cor"),
-                       tabPanel("Spectrum Annotation", box(withSpinner(plotOutput("spectrum", hover = "spechover",
+                       tabPanel("Correlation Plot", withSpinner(plotOutput("corPlot")),  value = "cor"),
+                       tabPanel("Spectrum Annotation", withSpinner(plotOutput("spectrum", hover = "spechover",
                                                                   brush = brushOpts("specBrush", resetOnNew = TRUE),
-                                                                  dblclick = "specDC"))),
+                                                                  dblclick = "specDC")),
 
                                 box(checkboxInput("facet", "Facetting", FALSE)),
                                 value = "spa"),
-                       tabPanel("Fragment Maps", box(withSpinner(plotOutput("fragmap", hover = "fmhover",
+                       tabPanel("Fragment Maps", withSpinner(plotOutput("fragmap", hover = "fmhover",
                                                             brush = brushOpts("fmBrush", resetOnNew = TRUE),
-                                                            dblclick = "fmDC"))),
+                                                            dblclick = "fmDC")),
 
 
                                 box(checkboxInput("facet2", "Facetting", FALSE),
@@ -94,25 +94,25 @@ ui <- dashboardPage(
                                     numericInput("modnum", "Number of Modifications", 0, 0, 5, 1)
                                     #checkboxInput("bound", "Binding of Masslist", TRUE),
                                     ),value = "frm"),
-                       tabPanel("Frequent Flyers", box(withSpinner(plotOutput("freqfls", hover = "ffhover",
+                       tabPanel("Frequent Flyers", withSpinner(plotOutput("freqfls", hover = "ffhover",
                                                             brush = brushOpts("ffBrush", resetOnNew = TRUE),
-                                                            dblclick = "ffDC"))),
+                                                            dblclick = "ffDC")),
                                                                                        value = "frf"),
-                       tabPanel("Fragmentation Stats", box(withSpinner(plotOutput("fragtypes", hover = "fthover",
+                       tabPanel("Fragmentation Stats", withSpinner(plotOutput("fragtypes", hover = "fthover",
                                                             brush = brushOpts("ftBrush", resetOnNew = TRUE),
-                                                            dblclick = "ftDC"))),
-                                                       box(withSpinner(plotOutput("zplot", hover = "zphover",
+                                                            dblclick = "ftDC")),
+                                                       withSpinner(plotOutput("zplot", hover = "zphover",
                                                             brush = brushOpts("zpBrush", resetOnNew = TRUE),
-                                                            dblclick = "zpDC"))),
+                                                            dblclick = "zpDC")),
 
                                 box(checkboxInput("facet3", "Facetting", FALSE),
                                     textInput("seq3", "Sequence", "MKSVITTVVSAADAAGRFPSNSDLESIQGNIQRSAARLEAAEKLAGNHEAVVKEAGDACFAKYAYLKNPGEAGENQEKINKCYRDVDHYMRLVNYCLVVGGTGPLDEWGIAGAREVYRTLNLPTSAYVASIAYTRDRLCVPRDMSAQAGVEFSAYLDYLINALS"),
                                     numericInput("modnum2", "Number of Modifications", 0, 0, 5, 1)
                                     ),
                                 value = "frs"),
-                       tabPanel("Energy Resolved Tracing", box(withSpinner(plotOutput("erplot", hover = "erhover",
+                       tabPanel("Energy Resolved Tracing", withSpinner(plotOutput("erplot", hover = "erhover",
                                                             brush = brushOpts("erBrush", resetOnNew = TRUE),
-                                                            dblclick = "erDC"))),
+                                                            dblclick = "erDC")),
 
                                 box(fileInput("spectra", "Upload Spectra", TRUE),
                                     checkboxInput("facet4", "Facetting", FALSE),
@@ -157,11 +157,19 @@ server <- function(input, output, session) {
                     if(grepl("STO|TSO|TS", x)) id <- str[2] else id <- str[1]
                     term <- str_extract(x, "C|N")
                     mod <- str_split(str_extract(x,"(\\d{1}).masslist"),"\\.")[[1]][1]
-                    energy <- str_extract_all(x, "hcd\\d+|etd\\d+|ethcd\\d+|uvpd\\d+|sf\\d+|iso\\d+|rep\\d+")[[1]]
+                    energy <- str_extract_all(x, "hcd\\d+|etd\\d+|et\\d?hcd|ethcd\\d?|ethcd\\d+|uvpd\\d+|sf\\d+|iso\\d+|rep\\d+")[[1]]
                     paste(id, paste(energy, collapse = ""), term, mod, sep = "_")
       })
-
-    names(df) <- unlist(names)
+    if(length(names) > length(unique(unlist(names)))) {
+      names <- unlist(names)
+      names[which(duplicated(names))] <- paste0(names[which(duplicated(names))],"_1")
+      names
+      }
+    if(length(names) > length(unique(names))) {
+      names[which(duplicated(names))] <- paste0(names[which(duplicated(names))],"_1")
+      names
+    }
+    names(df) <- names
 
     if(input$masslists == TRUE) {
       inFiles <<- input$fileIn
@@ -188,14 +196,6 @@ server <- function(input, output, session) {
   width <- reactive({width <- input$width})
 
   height <- reactive({height <- input$height})
-
-  output$boxwidth <- renderUI({
-    width <- width()
-  })
-
-  output$boxheight <- renderUI({
-    height <- height()
-  })
 
   observe({
 
@@ -272,7 +272,7 @@ server <- function(input, output, session) {
                                        else if(input$conditionedPanels == "frf") inputPlot <<- inputPlotFrf()
                                        else if(input$conditionedPanels == "frs") inputPlot <<- inputPlotFrs()
                                        else if(input$conditionedPanels == "erp") inputPlot <<- inputPlotErp()
-                                       ggsave(file, plot = inputPlot, device = input$filetype)})
+                                       ggsave(file, plot = inputPlot, device = input$filetype, width = input$width*0.01, height = input$height*0.01)})
 
   chosenspectra <- eventReactive(input$plot, {
     ranges$x <<- c(input$range[1], input$range[2])
@@ -322,7 +322,7 @@ server <- function(input, output, session) {
     data <- df()
     subspectra <- chosenspectra()
 
-    ranges <- seq(input$range[1], input$range[2], by = 0.1)
+    ranges <<- seq(input$range[1], input$range[2], by = 0.1)
 
     subdataList <- lapply(subspectra, function(x)
     {

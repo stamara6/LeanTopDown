@@ -5,8 +5,7 @@
 \title{Spectrum annotation}
 \usage{
 annotate_spectrum(data = gList, dir2 = "", dir3 = "", subset = FALSE,
-  mergefrags = FALSE, Plot_file_name = "annotated spectrum",
-  ranges = ranges)
+  mergefrags = FALSE, ranges = ranges, ppm = ppm)
 }
 \arguments{
 \item{ranges}{}

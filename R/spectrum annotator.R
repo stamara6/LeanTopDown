@@ -24,7 +24,8 @@ library(RColorBrewer)
 #'
 #' @examples
 annotate_spectrum <- function(data = gList, dir2 = "", dir3 = "",
-                      subset = FALSE, mergefrags = FALSE, Plot_file_name = "annotated spectrum", ranges = ranges) {
+                      subset = FALSE, mergefrags = FALSE,
+                      ranges = ranges, ppm = ppm) {
 
   if(mergefrags == TRUE & dir2 != "" & dir3 != "")
   {
@@ -69,12 +70,8 @@ annotate_spectrum <- function(data = gList, dir2 = "", dir3 = "",
     else fdf$Ion.type.clust[i] <- ""
   }
 
-  if(subset) {
-    df <- df[df$exp == "hcd26_etd75_sa20" & df$m.z > 10000 & df$m.z < 18000,]
-    fdf <- fdf[fdf$exp == "hcd26_etd75_sa20" & abs(fdf$calib.ppm) <= 3.5 & fdf$m.z > 10000 & fdf$m.z < 18000,]
-    df$Intensity <- 100/max(df$Intensity)*df$Intensity
-    fdf$Intensity <- 100/max(fdf$Intensity)*fdf$Intensity
-  }
+  fdf <- fdf[abs(fdf$calib.ppm) <= ppm,]
+
   #TODO get appropriate filenames
   #df$iso <- round(as.numeric(gsub('.*_([[:digit:]]+.[[:digit:]]+).txt.*','\\1',df$exp)),2)
   #fdf$iso <- round(as.numeric(gsub('.*_([[:digit:]]+.[[:digit:]]+).txt.*','\\1',fdf$exp)),2)

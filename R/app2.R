@@ -12,7 +12,7 @@
 # source("C:\\Users\\stama\\OneDrive\\Documents\\R\\Projects\\LeanTopDown\\R/freqflyers.R", local = TRUE)
 # source("C:\\Users\\stama\\OneDrive\\Documents\\R\\Projects\\LeanTopDown\\R/frgmntstats.R", local = TRUE)
 
-
+library(stringr)
 library(shiny)
 library(ggplot2)
 library(reshape2)
@@ -62,6 +62,7 @@ ui <- dashboardPage(
                            choices = c("pdf", "png")),
               textInput("filename", "File name:", ""),
               uiOutput("mzRange"),
+              numericInput("ppm", "Accuracy", 3.5, 0.5, 20, 0.5),
               checkboxInput("masslists", "Combine Masslists", FALSE),
               fileInput("fileIn", "Upload Masslists", TRUE),
               actionLink("selectall","Select All"),
@@ -90,9 +91,9 @@ ui <- dashboardPage(
                                 box(checkboxInput("facet2", "Facetting", FALSE),
                                     textInput("seq", "Sequence", "MKSVITTVVSAADAAGRFPSNSDLESIQGNIQRSAARLEAAEKLAGNHEAVVKEAGDACFAKYAYLKNPGEAGENQEKINKCYRDVDHYMRLVNYCLVVGGTGPLDEWGIAGAREVYRTLNLPTSAYVASIAYTRDRLCVPRDMSAQAGVEFSAYLDYLINALS"),
                                     #checkboxInput("septerm", "Separate Termini Processing", TRUE),
-                                    numericInput("modnum", "Number of Modifications", 0, 0, 5, 1),
+                                    numericInput("modnum", "Number of Modifications", 0, 0, 5, 1)
                                     #checkboxInput("bound", "Binding of Masslist", TRUE),
-                                    numericInput("ppm", "Accuracy", 3.5, 0.5, 20, 0.5)),value = "frm"),
+                                    ),value = "frm"),
                        tabPanel("Frequent Flyers", box(withSpinner(plotOutput("freqfls", hover = "ffhover",
                                                             brush = brushOpts("ffBrush", resetOnNew = TRUE),
                                                             dblclick = "ffDC"))),
@@ -106,8 +107,8 @@ ui <- dashboardPage(
 
                                 box(checkboxInput("facet3", "Facetting", FALSE),
                                     textInput("seq3", "Sequence", "MKSVITTVVSAADAAGRFPSNSDLESIQGNIQRSAARLEAAEKLAGNHEAVVKEAGDACFAKYAYLKNPGEAGENQEKINKCYRDVDHYMRLVNYCLVVGGTGPLDEWGIAGAREVYRTLNLPTSAYVASIAYTRDRLCVPRDMSAQAGVEFSAYLDYLINALS"),
-                                    numericInput("modnum2", "Number of Modifications", 0, 0, 5, 1),
-                                    numericInput("ppm2", "Accuracy", 3.5, 0.5, 20, 0.5)),
+                                    numericInput("modnum2", "Number of Modifications", 0, 0, 5, 1)
+                                    ),
                                 value = "frs"),
                        tabPanel("Energy Resolved Tracing", box(withSpinner(plotOutput("erplot", hover = "erhover",
                                                             brush = brushOpts("erBrush", resetOnNew = TRUE),
@@ -118,8 +119,8 @@ ui <- dashboardPage(
                                     textInput("seq4", "Sequence", ""),
                                     checkboxInput("septerm4", "Separate Termini Processing", TRUE),
                                     numericInput("modnum4", "Number of Modifications", 0, 0, 5, 1),
-                                    checkboxInput("bound4", "Binding of Masslist", TRUE),
-                                    numericInput("ppm4", "Accuracy", 3.5, 0.5, 20, 0.5)),
+                                    checkboxInput("bound4", "Binding of Masslist", TRUE)
+                                    ),
                                 value = "erp"),
                        id = "conditionedPanels"
 
@@ -151,7 +152,17 @@ server <- function(input, output, session) {
 
     }
     df <- df[!sapply(df, is.null)]
-    names(df) <- inFiles$name[grepl(".txt|.masslist|.csv", inFiles$name)]
+    names <- lapply(inFiles$name[grepl(".txt|.masslist|.csv", inFiles$name)], function(x){
+                    str <- strsplit(gsub("_"," ", x), " ")[[1]][grep("[[:alpha:]]", strsplit(gsub("_"," ", x), " ")[[1]])]
+                    if(grepl("STO|TSO|TS", x)) id <- str[2] else id <- str[1]
+                    term <- str_extract(x, "C|N")
+                    mod <- str_split(str_extract(x,"(\\d{1}).masslist"),"\\.")[[1]][1]
+                    energy <- str_extract_all(x, "hcd\\d+|etd\\d+|ethcd\\d+|uvpd\\d+|sf\\d+|iso\\d+|rep\\d+")[[1]]
+                    paste(id, paste(energy, collapse = ""), term, mod, sep = "_")
+      })
+
+    names(df) <- unlist(names)
+
     if(input$masslists == TRUE) {
       inFiles <<- input$fileIn
       df <- combine_masslists(shiny = TRUE)
@@ -218,8 +229,10 @@ server <- function(input, output, session) {
     maxmz <- max(bind_rows(data)$m.z)
     #data <- do.call("rbind", data)
     #if(exists(data$Mz)) colnames(data)[colnames(data) == "Mz"] <- "m.z"
-    sliderInput("range", "m/z Range (for correlation):",
+    if(is.null(ranges$x)) sliderInput("range", "m/z Range:",
                 min = 0, max = maxmz, value = c(0, round(maxmz, 2)))
+    else sliderInput("range", "m/z Range:",
+                     min = 0, max = maxmz, value = c(input$range[1], input$range[2]))
   })
 
 
@@ -344,7 +357,7 @@ server <- function(input, output, session) {
       df
     })
     names(gList) <<- subspectra
-    spaplot <<- annotate_spectrum(data = gList, ranges = ranges)
+    spaplot <<- annotate_spectrum(data = gList, ranges = ranges, ppm = input$ppm)
     print(spaplot)
   }, width = function(){width()}, height = function(){height()}
 )

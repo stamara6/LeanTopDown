@@ -129,7 +129,14 @@ combine_masslists <- function(dir = "", shiny = FALSE) {
   } else {
           Data_list <- import_masslists(shiny = TRUE)
           #file_list <- inFiles$datapath[grepl(".masslist", inFiles$datapath)]
-          file_names <- inFiles$name[grepl(".masslist", inFiles$name)]
+          file_names <- unlist(lapply(inFiles$name[grepl(".masslist", inFiles$name)], function(x){
+            str <- strsplit(gsub("_"," ", x), " ")[[1]][grep("[[:alpha:]]", strsplit(gsub("_"," ", x), " ")[[1]])]
+            if(grepl("STO|TSO|TS", x)) id <- str[2] else id <- str[1]
+            term <- str_extract(x, "C|N")
+            mod <- str_split(str_extract(x,"(\\d{1}).masslist"),"\\.")[[1]][1]
+            energy <- str_extract_all(x, "hcd\\d+|etd\\d+|ethcd\\d+|uvpd\\d+|sf\\d+|iso\\d+|rep\\d+")[[1]]
+            paste(id, paste(energy, collapse = ""), term, mod, sep = "_")
+          }))
          }
   cluster <- max(substring(regmatches(file_names,
                                       gregexpr("_C_[[:digit:]]|_N_[[:digit:]]", file_names)), 4, 5))
